@@ -381,6 +381,30 @@ Note: Public IP detection runs in background"""
                     "• Server is running\n" +
                     "• Port 9999 is open\n" +
                     "• Router port forwarding (for internet)")
+            elif "10061" in error_msg:
+                self.log_to_client("🔧 Connection Refused Error:")
+                self.log_to_client("   • Server is reachable but port 9999 is closed")
+                self.log_to_client("   • Router/firewall blocking port 9999")
+                self.log_to_client("   • Server not listening on port 9999")
+                self.log_to_client("   • Need port forwarding for internet connections")
+                messagebox.showerror("Connection Refused", 
+                    "Server refused the connection.\n\n" +
+                    "SOLUTION NEEDED:\n" +
+                    "• Server must forward port 9999 in router\n" +
+                    "• Allow port 9999 in Windows Firewall\n" +
+                    "• Verify server is actually running\n\n" +
+                    "This is typically a port forwarding issue!")
+            elif "11001" in error_msg:
+                self.log_to_client("🔧 DNS Resolution Error:")
+                self.log_to_client("   • Cannot resolve server IP address")
+                self.log_to_client("   • Check internet connection")
+                self.log_to_client("   • Invalid IP in connection key")
+                messagebox.showerror("DNS Error", 
+                    "Cannot resolve server address.\n\n" +
+                    "Please check:\n" +
+                    "• Internet connection\n" +
+                    "• Connection key has valid IP\n" +
+                    "• DNS server is working")
             else:
                 messagebox.showerror("Error", f"Failed to connect: {error_msg}")
                 
