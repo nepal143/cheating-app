@@ -50,15 +50,15 @@ class NetworkHelper:
     
     @staticmethod
     def get_network_info():
-        """Get comprehensive network information"""
+        """Get comprehensive network information without blocking"""
         local_ip = NetworkHelper.get_local_ip()
-        public_ip = NetworkHelper.get_public_ip()
         
+        # Return immediately with basic info, detect public IP in background
         return {
             'local_ip': local_ip,
-            'public_ip': public_ip,
+            'public_ip': "Detecting...",
             'local_connection': f"{local_ip}:9999",
-            'external_connection': f"{public_ip}:9999"
+            'external_connection': "Detecting..."
         }
 
 class ImprovedSecureServer:

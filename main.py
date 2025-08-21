@@ -252,7 +252,24 @@ class RemoteDesktopApp:
         """Show network connection information"""
         try:
             from improved_networking import NetworkHelper
+            
+            # Show basic info immediately
             network_info = NetworkHelper.get_network_info()
+            
+            # Detect public IP in background
+            def detect_public_ip():
+                try:
+                    public_ip = NetworkHelper.get_public_ip()
+                    network_info['public_ip'] = public_ip
+                    network_info['external_connection'] = f"{public_ip}:9999"
+                    print(f"Public IP detected: {public_ip}")
+                except Exception as e:
+                    print(f"Could not detect public IP: {e}")
+                    network_info['public_ip'] = "Detection failed"
+                    network_info['external_connection'] = "Not available"
+            
+            # Start detection in background
+            threading.Thread(target=detect_public_ip, daemon=True).start()
             
             info_text = f"""🌐 NETWORK CONNECTION INFORMATION
 
@@ -276,7 +293,9 @@ class RemoteDesktopApp:
 💡 QUICK TEST:
 1. Start the server
 2. Test locally first: {network_info['local_connection']}
-3. Then test externally: {network_info['external_connection']}"""
+3. Then test externally: {network_info['external_connection']}
+
+Note: Public IP detection runs in background"""
 
             messagebox.showinfo("Network Information", info_text)
             
