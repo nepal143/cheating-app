@@ -388,13 +388,10 @@ class RemoteDesktopApp:
                 
         except Exception as e:
             self.log_to_server(f"Server error: {e}")
+            self.root.after(0, lambda: messagebox.showerror("Server Error", str(e)))
         finally:
             if hasattr(self, 'server') and self.server:
                 self.server.stop()
-                
-        except Exception as e:
-            self.log_to_server(f"Server error: {str(e)}")
-            self.root.after(0, lambda: messagebox.showerror("Server Error", str(e)))
             
     def run_client(self, server_info):
         """Run the client in a separate thread"""
