@@ -195,6 +195,15 @@ class RemoteDesktopApp:
     def start_server(self):
         """Start the remote desktop server"""
         try:
+            # Ask user about connection type
+            connection_choice = messagebox.askyesnocancel(
+                "Connection Type",
+                "What type of connections do you expect?\n\n" +
+                "YES = Internet connections (different networks)\n" +
+                "NO = Same network only (WiFi/LAN)\n" +
+                "CANCEL = Show both connection options"
+            )
+            
             # Generate connection key
             self.connection_key = self.generate_connection_key()
             
@@ -215,13 +224,33 @@ class RemoteDesktopApp:
             server_thread.start()
             
             self.is_server_running = True
-            self.status_var.set("Server running - Waiting for connections")
-            self.log_to_server(f"Server started successfully")
-            self.log_to_server(f"Connection key generated: {self.connection_key[:20]}...")
+            
+            # Show appropriate connection info based on user choice
+            if connection_choice is True:  # Internet connections
+                self.status_var.set("Server running - Internet mode (port forwarding required)")
+                self.log_to_server(f"🌍 INTERNET MODE ACTIVATED")
+                self.log_to_server(f"📋 Connection key: {self.connection_key}")
+                self.log_to_server(f"⚠️ IMPORTANT: Forward port 9999 in your router!")
+                self.log_to_server(f"📱 Tell clients to use: YOUR_PUBLIC_IP:9999")
+                self.log_to_server(f"💡 Get your public IP from: whatismyipaddress.com")
+            elif connection_choice is False:  # LAN only
+                self.status_var.set("Server running - Local network mode")
+                self.log_to_server(f"🏠 LOCAL NETWORK MODE")
+                self.log_to_server(f"📋 Connection key: {self.connection_key}")
+                self.log_to_server(f"📍 Tell clients to use your local IP + :9999")
+                self.log_to_server(f"💡 Find local IP in Network Info button")
+            else:  # Show both
+                self.status_var.set("Server running - Both local and internet")
+                self.log_to_server(f"🌐 UNIVERSAL MODE")
+                self.log_to_server(f"📋 Connection key: {self.connection_key}")
+                self.log_to_server(f"🏠 Local: Use local IP + :9999")
+                self.log_to_server(f"🌍 Internet: Use public IP + :9999 (needs port forwarding)")
+            
+            self.log_to_server(f"✅ Server started successfully - Waiting for connections...")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to start server: {str(e)}")
-            self.log_to_server(f"Error starting server: {str(e)}")
+            self.log_to_server(f"❌ Error starting server: {str(e)}")
             
     def stop_server(self):
         """Stop the remote desktop server"""
@@ -309,12 +338,35 @@ Note: Public IP detection runs in background"""
             if not key:
                 messagebox.showwarning("Warning", "Please enter a connection key")
                 return
-                
+            
+            # Ask about connection type
+            is_internet = messagebox.askyesno(
+                "Connection Type",
+                "Are you connecting over the Internet?\n\n" +
+                "YES = Internet connection (different networks)\n" +
+                "NO = Same network (WiFi/LAN)\n\n" +
+                "This helps with connection troubleshooting."
+            )
+            
             # Parse connection key to get server info
             server_info = self.parse_connection_key(key)
             if not server_info:
                 messagebox.showerror("Error", "Invalid connection key")
                 return
+            
+            # Show different guidance based on connection type
+            if is_internet:
+                self.log_to_client("🌍 INTERNET CONNECTION MODE")
+                self.log_to_client("💡 If connection fails:")
+                self.log_to_client("   • Check server's public IP is correct")
+                self.log_to_client("   • Verify port 9999 is forwarded on server's router")
+                self.log_to_client("   • Check both firewalls allow port 9999")
+            else:
+                self.log_to_client("🏠 LOCAL NETWORK MODE")
+                self.log_to_client("💡 If connection fails:")
+                self.log_to_client("   • Ensure both devices on same WiFi/network")
+                self.log_to_client("   • Check server's local IP is correct")
+                self.log_to_client("   • Try disabling Windows Firewall temporarily")
                 
             # Update UI
             self.connect_btn.config(state="disabled")
@@ -327,11 +379,11 @@ Note: Public IP detection runs in background"""
             
             self.is_client_connected = True
             self.status_var.set("Connecting to server...")
-            self.log_to_client("Attempting to connect to server...")
+            self.log_to_client(f"🔄 Attempting connection to: {server_info['server_ip']}:{server_info['server_port']}")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to connect: {str(e)}")
-            self.log_to_client(f"Connection error: {str(e)}")
+            self.log_to_client(f"❌ Connection error: {str(e)}")
             
     def disconnect_from_server(self):
         """Disconnect from the remote desktop server"""
