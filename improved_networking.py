@@ -26,10 +26,15 @@ class NetworkHelper:
     def get_public_ip():
         """Get the public IP address"""
         try:
-            response = requests.get("https://api.ipify.org?format=text", timeout=5)
-            return response.text.strip()
+            response = requests.get("https://httpbin.org/ip", timeout=3)
+            return response.json()['origin']
         except Exception:
-            return "Unable to detect"
+            try:
+                # Fallback method
+                response = requests.get("https://api.ipify.org?format=text", timeout=3)
+                return response.text.strip()
+            except Exception:
+                return "Unable to detect (check internet connection)"
     
     @staticmethod
     def test_port_open(host, port, timeout=5):
@@ -86,12 +91,22 @@ class ImprovedSecureServer:
             
             self.is_running = True
             
-            # Get network info
-            network_info = NetworkHelper.get_network_info()
+            # Get network info (but don't fail if public IP detection fails)
+            local_ip = NetworkHelper.get_local_ip()
+            network_info = {
+                'local_ip': local_ip,
+                'local_connection': f"{local_ip}:9999",
+                'external_connection': f"[Detecting...]:9999",
+                'public_ip': "Detecting..."
+            }
+            
             print(f"Server started successfully!")
             print(f"Local network connection: {network_info['local_connection']}")
-            print(f"External connection: {network_info['external_connection']}")
+            print(f"External connection will be available after IP detection")
             print(f"Note: For external connections, ensure port {port} is forwarded in your router")
+            
+            # Detect public IP in background (don't block server start)
+            threading.Thread(target=self._detect_public_ip, args=(network_info,), daemon=True).start()
             
             threading.Thread(target=self._accept_connections, daemon=True).start()
             return True, network_info
@@ -104,6 +119,17 @@ class ImprovedSecureServer:
         except Exception as e:
             print(f"Unexpected server start error: {e}")
             return False, None
+    
+    def _detect_public_ip(self, network_info):
+        """Detect public IP in background"""
+        try:
+            public_ip = NetworkHelper.get_public_ip()
+            network_info['public_ip'] = public_ip
+            network_info['external_connection'] = f"{public_ip}:9999"
+            print(f"Public IP detected: {public_ip}")
+            print(f"External connection: {network_info['external_connection']}")
+        except Exception:
+            print("Could not detect public IP address")
             
     def _accept_connections(self):
         """Accept client connections with timeout handling"""

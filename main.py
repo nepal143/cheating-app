@@ -113,7 +113,10 @@ class RemoteDesktopApp:
         self.start_server_btn.pack(side="left", padx=(0, 5))
         
         self.stop_server_btn = ttk.Button(controls_frame, text="Stop Server", command=self.stop_server, state="disabled")
-        self.stop_server_btn.pack(side="left")
+        self.stop_server_btn.pack(side="left", padx=(0, 5))
+        
+        # Network info button
+        ttk.Button(controls_frame, text="Show Network Info", command=self.show_network_info).pack(side="left")
         
         # Connection log
         log_frame = ttk.LabelFrame(parent, text="Connection Log", padding=10)
@@ -245,6 +248,41 @@ class RemoteDesktopApp:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to stop server: {str(e)}")
             
+    def show_network_info(self):
+        """Show network connection information"""
+        try:
+            from improved_networking import NetworkHelper
+            network_info = NetworkHelper.get_network_info()
+            
+            info_text = f"""🌐 NETWORK CONNECTION INFORMATION
+
+📍 Local IP: {network_info['local_ip']}
+🌍 Public IP: {network_info['public_ip']}
+
+📋 CONNECTION INSTRUCTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏠 SAME NETWORK (WiFi/LAN):
+   Use: {network_info['local_connection']}
+
+🌍 DIFFERENT NETWORKS (Internet):
+   Use: {network_info['external_connection']}
+   
+⚠️ For external connections:
+• Forward port 9999 in your router
+• Allow port 9999 in Windows Firewall
+• Some mobile carriers block incoming connections
+
+💡 QUICK TEST:
+1. Start the server
+2. Test locally first: {network_info['local_connection']}
+3. Then test externally: {network_info['external_connection']}"""
+
+            messagebox.showinfo("Network Information", info_text)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to get network info: {str(e)}")
+            
     def connect_to_server(self):
         """Connect to a remote desktop server"""
         try:
@@ -374,9 +412,9 @@ class RemoteDesktopApp:
             if success and network_info:
                 self.log_to_server("Server started successfully!")
                 self.log_to_server(f"Local connection: {network_info['local_connection']}")
-                self.log_to_server(f"External connection: {network_info['external_connection']}")
-                self.log_to_server("Share the external IP with remote users")
-                self.log_to_server("Note: Port 9999 must be forwarded in your router for external access")
+                self.log_to_server("Public IP detection in progress...")
+                self.log_to_server("Share the connection info with remote users")
+                self.log_to_server("Note: For external networks, port 9999 must be forwarded in your router")
                 self.log_to_server("Waiting for client connections...")
                 
                 # Keep server alive while running
