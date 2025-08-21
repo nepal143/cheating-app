@@ -223,7 +223,7 @@ class SecureServer:
             length = struct.unpack('!I', length_data)[0]
             
             # Sanity check on length to prevent memory issues
-            if length > 2000000:  # 2MB max to prevent huge packets
+            if length > 5000000:  # 5MB max for good quality images
                 print(f"Data too large: {length} bytes")
                 return None
                 
@@ -413,7 +413,7 @@ class SecureClient:
             length = struct.unpack('!I', length_data)[0]
             
             # Sanity check on length to prevent memory issues
-            if length > 2000000:  # 2MB max to prevent huge packets
+            if length > 5000000:  # 5MB max for good quality images
                 print(f"Data too large: {length} bytes")
                 return None
                 
