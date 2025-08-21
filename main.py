@@ -405,7 +405,7 @@ class RemoteDesktopApp:
                                 if frame_count % 100 == 0:
                                     self.log_to_server("Screen capture issue")
                                 
-                            time.sleep(0.08)  # ~12 FPS for screen, but input checked 5x more
+                            time.sleep(0.016)  # 60+ FPS for both screen and input
                             
                         except Exception as e:
                             self.log_to_server(f"Screen sharing error: {str(e)}")
@@ -463,7 +463,7 @@ class RemoteDesktopApp:
                             self.log_to_client(f"Screen data error: {str(data_error)}")
                             # Don't break, just continue trying
                             
-                        time.sleep(0.1)  # 10 FPS for better stability
+                        time.sleep(0.016)  # 60+ FPS for fast response
                         
                     except Exception as e:
                         self.log_to_client(f"Connection error: {str(e)}")

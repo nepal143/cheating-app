@@ -9,6 +9,7 @@ import io
 import json
 import threading
 import time
+import base64
 
 try:
     import cv2
@@ -21,15 +22,15 @@ class ScreenCapture:
     def __init__(self):
         self.screen_width = 1920
         self.screen_height = 1080
-        self.compression_quality = 50  # Better quality since 200KB is acceptable
-        self.scale_factor = 0.7  # Better resolution for good quality
+        self.compression_quality = 40  # Good balance for 200KB target
+        self.scale_factor = 0.6  # Good resolution
         self.last_capture_time = 0
-        self.min_frame_interval = 0.08  # Good frame rate
+        self.min_frame_interval = 0.016  # 60+ FPS (1/60 = 0.016)
         
     def capture_screen(self):
         """Capture the current screen and return compressed image data"""
         try:
-            # Rate limiting
+            # Rate limiting for 60+ FPS
             current_time = time.time()
             if current_time - self.last_capture_time < self.min_frame_interval:
                 return None
@@ -38,45 +39,64 @@ class ScreenCapture:
             # Capture full screen
             screenshot = ImageGrab.grab()
             
-            # Resize for better performance (much more aggressive)
+            # Resize for better performance and smaller data
             new_width = int(screenshot.width * self.scale_factor)
             new_height = int(screenshot.height * self.scale_factor)
-            screenshot = screenshot.resize((new_width, new_height), Image.Resampling.NEAREST)
+            screenshot = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
             
-            # Convert to RGB first to ensure proper JPEG encoding
+            # Convert to RGB to ensure proper JPEG encoding
             if screenshot.mode != 'RGB':
                 screenshot = screenshot.convert('RGB')
             
-            # Convert to JPEG with good quality (200KB is fine)
-            img_buffer = io.BytesIO()
-            screenshot.save(img_buffer, format='JPEG', quality=self.compression_quality, optimize=True)
+            # Start with reasonable quality
+            quality = self.compression_quality
+            max_attempts = 3
             
-            # Get the compressed data and validate size
-            compressed_data = img_buffer.getvalue()
-            data_size = len(compressed_data)
+            for attempt in range(max_attempts):
+                try:
+                    # Create JPEG data
+                    img_buffer = io.BytesIO()
+                    screenshot.save(img_buffer, format='JPEG', quality=quality, optimize=True)
+                    jpeg_data = img_buffer.getvalue()
+                    img_buffer.close()
+                    
+                    # Check size - should be around 200KB or less
+                    data_size = len(jpeg_data)
+                    print(f"Image captured: {data_size} bytes ({data_size/1024:.1f}KB) at quality {quality}")
+                    
+                    # If too large, reduce quality
+                    if data_size > 300000:  # 300KB max
+                        quality = max(20, quality - 15)
+                        if attempt < max_attempts - 1:
+                            continue
+                    
+                    # Create the screen data packet with base64 encoded image
+                    screen_data = {
+                        'type': 'screen',
+                        'width': new_width,
+                        'height': new_height,
+                        'data': base64.b64encode(jpeg_data).decode('ascii'),  # Base64 encode for JSON
+                        'timestamp': current_time
+                    }
+                    
+                    # Final safety check on the entire packet
+                    test_json = json.dumps(screen_data, default=str)
+                    if len(test_json) > 1000000:  # 1MB max for entire packet
+                        print(f"Screen data packet too large: {len(test_json)} bytes, skipping")
+                        return None
+                    
+                    return screen_data
+                    
+                except Exception as e:
+                    print(f"JPEG creation error (attempt {attempt + 1}): {e}")
+                    quality = max(20, quality - 10)
+                    
+            print("All compression attempts failed")
+            return None
             
-            # Only reduce quality if absolutely necessary
-            if data_size > 500000:  # 500KB limit
-                img_buffer = io.BytesIO()
-                screenshot.save(img_buffer, format='JPEG', quality=30, optimize=True)
-                compressed_data = img_buffer.getvalue()
-                data_size = len(compressed_data)
-                print(f"Reduced quality to 30 due to size: {data_size} bytes")
-                
-            # Skip only if extremely large
-            if data_size > 1000000:  # 1MB absolute limit
-                print(f"Image still too large: {data_size} bytes, skipping frame")
-                return None
-            
-            screen_data = {
-                'type': 'screen',
-                'width': new_width,
-                'height': new_height,
-                'data': compressed_data,
-                'timestamp': current_time
-            }
-            
-            return screen_data
+        except Exception as e:
+            print(f"Screen capture error: {e}")
+            return None
             
         except Exception as e:
             print(f"Screen capture error: {e}")
@@ -216,8 +236,11 @@ class RemoteViewer:
             if not self.viewer_window or not self.canvas:
                 return
                 
+            # Decode base64 image data
+            image_data = base64.b64decode(screen_data['data'])
+            
             # Create image from data
-            image = Image.open(io.BytesIO(screen_data['data']))
+            image = Image.open(io.BytesIO(image_data))
             
             # Update canvas to get current size
             self.canvas.update_idletasks()
