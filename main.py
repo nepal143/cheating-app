@@ -151,6 +151,10 @@ class RemoteDesktopApp:
         self.disconnect_btn = ttk.Button(controls_frame, text="Disconnect", command=self.disconnect_from_server, state="disabled")
         self.disconnect_btn.pack(side="left")
         
+        # Reverse connection button for easy access
+        self.reverse_btn = ttk.Button(controls_frame, text="🔄 Reverse Connect", command=self.suggest_reverse_connection)
+        self.reverse_btn.pack(side="left", padx=(10, 0))
+        
         # Connection log
         log_frame = ttk.LabelFrame(parent, text="Connection Log", padding=10)
         log_frame.pack(fill="both", expand=True, padx=5, pady=5)
@@ -356,8 +360,47 @@ Note: Public IP detection runs in background"""
             error_msg = str(e)
             self.log_to_client(f"❌ Connection setup error: {error_msg}")
             
+            # Show reverse connection suggestion for timeouts
+            if "10060" in error_msg or "timeout" in error_msg.lower() or "Failed to connect" in error_msg:
+                self.log_to_client("🔧 Connection Timeout - Port Forwarding Issue:")
+                self.log_to_client("   • Server's router isn't forwarding port 9999")
+                self.log_to_client("   • Firewall blocking the connection")
+                self.log_to_client("")
+                self.log_to_client("💡 INSTANT FIX - Try Reverse Connection:")
+                self.log_to_client("   1. Person sharing screen: Use CLIENT mode")
+                self.log_to_client("   2. Person viewing: Use SERVER mode")
+                self.log_to_client("   3. Viewer shares connection key to screen sharer")
+                self.log_to_client("   4. No port forwarding needed!")
+                
+                # Offer to switch to reverse connection mode
+                reverse_choice = messagebox.askyesno(
+                    "Connection Failed - Try Reverse Connection?",
+                    "Connection failed due to port forwarding issues.\n\n" +
+                    "SOLUTION: Use Reverse Connection Method\n\n" +
+                    "Would you like to switch to reverse connection?\n" +
+                    "• You become the SERVER (no port forwarding needed)\n" +
+                    "• Other person connects to you as CLIENT\n" +
+                    "• Works behind any firewall/router"
+                )
+                
+                if reverse_choice:
+                    self.log_to_client("🔄 Switching to Reverse Connection Mode...")
+                    self.log_to_client("📋 Instructions:")
+                    self.log_to_client("1. Click 'Server' tab")
+                    self.log_to_client("2. Start server and share connection key")
+                    self.log_to_client("3. Ask other person to connect as client")
+                    
+                    # Switch to server tab
+                    self.notebook.select(0)  # Switch to server tab
+                    messagebox.showinfo("Reverse Connection", 
+                        "Switched to Server mode.\n\n" +
+                        "Now:\n" +
+                        "1. Start the server\n" +
+                        "2. Share your connection key\n" +
+                        "3. Wait for other person to connect")
+            
             # Provide specific help for common errors
-            if "getaddrinfo failed" in error_msg:
+            elif "getaddrinfo failed" in error_msg:
                 self.log_to_client("🔧 DNS/Network Resolution Error:")
                 self.log_to_client("   • Check internet connection")
                 self.log_to_client("   • Verify IP address is correct")
@@ -370,17 +413,6 @@ Note: Public IP detection runs in background"""
                     "• Invalid IP in connection key\n" +
                     "• Network/DNS configuration issue\n" +
                     "• Firewall blocking connection")
-            elif "10060" in error_msg:
-                self.log_to_client("🔧 Connection Timeout Error:")
-                self.log_to_client("   • Server might be offline")
-                self.log_to_client("   • Port 9999 blocked by firewall")
-                self.log_to_client("   • Router port forwarding needed")
-                messagebox.showerror("Connection Timeout", 
-                    "Cannot connect to server.\n\n" +
-                    "Please check:\n" +
-                    "• Server is running\n" +
-                    "• Port 9999 is open\n" +
-                    "• Router port forwarding (for internet)")
             elif "10061" in error_msg:
                 self.log_to_client("🔧 Connection Refused Error:")
                 self.log_to_client("   • Server is reachable but port 9999 is closed")
@@ -412,6 +444,37 @@ Note: Public IP detection runs in background"""
             self.connect_btn.config(state="normal")
             self.disconnect_btn.config(state="disabled")
             
+    def suggest_reverse_connection(self):
+        """Suggest using reverse connection method"""
+        result = messagebox.askyesno(
+            "Reverse Connection Method",
+            "🔄 REVERSE CONNECTION SOLUTION\n\n" +
+            "Instead of connecting TO a server, YOU become the server!\n\n" +
+            "HOW IT WORKS:\n" +
+            "• You: Switch to SERVER mode (no port forwarding needed)\n" +
+            "• Other person: Uses CLIENT mode to connect to you\n" +
+            "• Perfect for bypassing firewalls and NAT routers\n\n" +
+            "Would you like to switch to Server mode now?"
+        )
+        
+        if result:
+            # Switch to server tab
+            self.notebook.select(0)  # Switch to server tab
+            self.log_to_server("🔄 Switched to Reverse Connection Mode")
+            self.log_to_server("📋 Instructions:")
+            self.log_to_server("1. Click 'Start Server'")
+            self.log_to_server("2. Share your connection key with the other person")
+            self.log_to_server("3. Wait for them to connect as client")
+            self.log_to_server("4. No port forwarding required!")
+            
+            messagebox.showinfo("Reverse Connection", 
+                "Switched to Server mode!\n\n" +
+                "Next steps:\n" +
+                "1. Start the server\n" +
+                "2. Share connection key with other person\n" +
+                "3. They connect to you as client\n\n" +
+                "This bypasses all port forwarding issues!")
+
     def disconnect_from_server(self):
         """Disconnect from the remote desktop server"""
         try:
@@ -671,6 +734,7 @@ Note: Public IP detection runs in background"""
                         
             else:
                 self.log_to_client("Failed to connect to server")
+                self.log_to_client("💡 TRY REVERSE CONNECTION - Click '🔄 Reverse Connect' button!")
                 self.status_var.set("Connection failed")
                 # Update UI on connection failure
                 self.root.after(0, lambda: self.connect_btn.config(state="normal"))
