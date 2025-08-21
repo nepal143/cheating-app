@@ -143,8 +143,8 @@ class SecureServer:
                 if not self.client_socket or not self.is_client_connected:
                     return False
                     
-                # Compress screen data
-                compressed_data = zlib.compress(screen_data['data'], level=1)
+                # Compress screen data much more aggressively
+                compressed_data = zlib.compress(screen_data['data'], level=9)  # Max compression
                 
                 # Create packet
                 packet = {
@@ -223,7 +223,7 @@ class SecureServer:
             length = struct.unpack('!I', length_data)[0]
             
             # Sanity check on length to prevent memory issues
-            if length > 50000000:  # 50MB max
+            if length > 5000000:  # 5MB max (much smaller)
                 print(f"Data too large: {length} bytes")
                 return None
                 
@@ -411,7 +411,7 @@ class SecureClient:
             length = struct.unpack('!I', length_data)[0]
             
             # Sanity check on length to prevent memory issues
-            if length > 50000000:  # 50MB max
+            if length > 5000000:  # 5MB max (much smaller)
                 print(f"Data too large: {length} bytes")
                 return None
                 

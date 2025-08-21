@@ -21,10 +21,10 @@ class ScreenCapture:
     def __init__(self):
         self.screen_width = 1920
         self.screen_height = 1080
-        self.compression_quality = 45  # Better quality vs performance balance
-        self.scale_factor = 0.7  # Slightly better resolution
+        self.compression_quality = 20  # Much lower quality for speed
+        self.scale_factor = 0.4  # Much smaller scale for speed
         self.last_capture_time = 0
-        self.min_frame_interval = 0.05  # 20 FPS max
+        self.min_frame_interval = 0.1  # 10 FPS max for stability
         
     def capture_screen(self):
         """Capture the current screen and return compressed image data"""
@@ -254,7 +254,7 @@ class RemoteViewer:
     def _on_mouse_move(self, event):
         """Handle mouse movement"""
         # Scale coordinates from viewer to actual screen size
-        scale_factor = 0.7  # This should match the server's scale_factor
+        scale_factor = 0.4  # This should match the server's scale_factor
         actual_x = int(event.x / scale_factor)
         actual_y = int(event.y / scale_factor)
         
@@ -268,7 +268,7 @@ class RemoteViewer:
     def _on_scroll(self, event):
         """Handle mouse scroll"""
         # Scale coordinates from viewer to actual screen size
-        scale_factor = 0.7  # This should match the server's scale_factor
+        scale_factor = 0.4  # This should match the server's scale_factor
         actual_x = int(event.x / scale_factor)
         actual_y = int(event.y / scale_factor)
         
@@ -293,7 +293,7 @@ class RemoteViewer:
     def _send_mouse_event(self, button, x, y):
         """Send mouse event to server"""
         # Scale coordinates from viewer to actual screen size
-        scale_factor = 0.7  # This should match the server's scale_factor
+        scale_factor = 0.4  # This should match the server's scale_factor
         actual_x = int(x / scale_factor)
         actual_y = int(y / scale_factor)
         
@@ -314,11 +314,13 @@ class RemoteViewer:
         """Handle viewer window close"""
         if self.parent_app:
             self.parent_app.disconnect_from_server()
-        self.viewer_window.destroy()
-        self.viewer_window = None
+        self.close()
         
     def close(self):
         """Close the viewer window"""
         if self.viewer_window:
-            self.viewer_window.destroy()
+            try:
+                self.viewer_window.destroy()
+            except:
+                pass
             self.viewer_window = None

@@ -405,7 +405,7 @@ class RemoteDesktopApp:
                                 # Don't crash on input errors
                                 pass
                                 
-                            time.sleep(0.05)  # ~20 FPS for better stability
+                            time.sleep(0.1)  # 10 FPS for better stability
                             
                         except Exception as e:
                             self.log_to_server(f"Screen sharing error: {str(e)}")
@@ -463,7 +463,7 @@ class RemoteDesktopApp:
                             self.log_to_client(f"Screen data error: {str(data_error)}")
                             # Don't break, just continue trying
                             
-                        time.sleep(0.05)  # ~20 FPS for better stability
+                        time.sleep(0.1)  # 10 FPS for better stability
                         
                     except Exception as e:
                         self.log_to_client(f"Connection error: {str(e)}")
