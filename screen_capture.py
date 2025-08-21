@@ -21,19 +21,27 @@ class ScreenCapture:
     def __init__(self):
         self.screen_width = 1920
         self.screen_height = 1080
-        self.compression_quality = 50  # JPEG quality (1-100)
-        self.scale_factor = 0.75  # Scale down for better performance
+        self.compression_quality = 30  # Lower quality for better performance  
+        self.scale_factor = 0.6  # Scale down more for better performance
+        self.last_capture_time = 0
+        self.min_frame_interval = 0.033  # Minimum 30 FPS
         
     def capture_screen(self):
         """Capture the current screen and return compressed image data"""
         try:
+            # Rate limiting
+            current_time = time.time()
+            if current_time - self.last_capture_time < self.min_frame_interval:
+                return None
+            self.last_capture_time = current_time
+            
             # Capture full screen
             screenshot = ImageGrab.grab()
             
             # Resize for better performance
             new_width = int(screenshot.width * self.scale_factor)
             new_height = int(screenshot.height * self.scale_factor)
-            screenshot = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            screenshot = screenshot.resize((new_width, new_height), Image.Resampling.NEAREST)
             
             # Convert to JPEG for compression
             img_buffer = io.BytesIO()
@@ -44,7 +52,7 @@ class ScreenCapture:
                 'width': new_width,
                 'height': new_height,
                 'data': img_buffer.getvalue(),
-                'timestamp': time.time()
+                'timestamp': current_time
             }
             
             return screen_data
@@ -72,9 +80,9 @@ class ScreenCapture:
         """Handle remote mouse click"""
         try:
             import pyautogui
-            # Scale coordinates back to full screen
-            x = int(data['x'] / self.scale_factor)
-            y = int(data['y'] / self.scale_factor)
+            # Coordinates are already scaled by client
+            x = data['x']
+            y = data['y']
             
             if data['button'] == 'left':
                 pyautogui.click(x, y)
@@ -92,9 +100,9 @@ class ScreenCapture:
         """Handle remote mouse movement"""
         try:
             import pyautogui
-            # Scale coordinates back to full screen
-            x = int(data['x'] / self.scale_factor)
-            y = int(data['y'] / self.scale_factor)
+            # Coordinates are already scaled by client
+            x = data['x']
+            y = data['y']
             pyautogui.moveTo(x, y)
             
         except ImportError:
@@ -137,8 +145,9 @@ class ScreenCapture:
         """Handle remote scroll input"""
         try:
             import pyautogui
-            x = int(data['x'] / self.scale_factor)
-            y = int(data['y'] / self.scale_factor)
+            # Coordinates are already scaled by client
+            x = data['x']
+            y = data['y']
             pyautogui.scroll(data['clicks'], x, y)
             
         except ImportError:
@@ -244,19 +253,29 @@ class RemoteViewer:
         
     def _on_mouse_move(self, event):
         """Handle mouse movement"""
+        # Scale coordinates from viewer to actual screen size
+        scale_factor = 0.6  # This should match the server's scale_factor
+        actual_x = int(event.x / scale_factor)
+        actual_y = int(event.y / scale_factor)
+        
         input_data = {
             'type': 'mouse_move',
-            'x': event.x,
-            'y': event.y
+            'x': actual_x,
+            'y': actual_y
         }
         self._send_input(input_data)
         
     def _on_scroll(self, event):
         """Handle mouse scroll"""
+        # Scale coordinates from viewer to actual screen size
+        scale_factor = 0.6  # This should match the server's scale_factor
+        actual_x = int(event.x / scale_factor)
+        actual_y = int(event.y / scale_factor)
+        
         input_data = {
             'type': 'scroll',
-            'x': event.x,
-            'y': event.y,
+            'x': actual_x,
+            'y': actual_y,
             'clicks': event.delta // 120  # Windows scroll units
         }
         self._send_input(input_data)
@@ -273,11 +292,16 @@ class RemoteViewer:
         
     def _send_mouse_event(self, button, x, y):
         """Send mouse event to server"""
+        # Scale coordinates from viewer to actual screen size
+        scale_factor = 0.6  # This should match the server's scale_factor
+        actual_x = int(x / scale_factor)
+        actual_y = int(y / scale_factor)
+        
         input_data = {
             'type': 'mouse_click',
             'button': button,
-            'x': x,
-            'y': y
+            'x': actual_x,
+            'y': actual_y
         }
         self._send_input(input_data)
         

@@ -172,8 +172,8 @@ class SecureServer:
                 if not self.client_socket or not self.is_client_connected:
                     return None
                     
-                # Set non-blocking mode for input
-                self.client_socket.settimeout(0.001)
+                # Set non-blocking mode for input with very short timeout
+                self.client_socket.settimeout(0.01)
                 encrypted_data = self._receive_encrypted_data(self.client_socket)
                 
                 if encrypted_data:
@@ -186,8 +186,7 @@ class SecureServer:
         except socket.timeout:
             return None
         except Exception as e:
-            print(f"Receive input error: {e}")
-            self._disconnect_client()
+            # Don't disconnect on input receive errors
             return None
             
     def _disconnect_client(self):
@@ -335,7 +334,8 @@ class SecureClient:
                 if not self.client_socket or not self.is_connected_flag:
                     return None
                     
-                self.client_socket.settimeout(1.0)
+                # Set a longer timeout for screen data
+                self.client_socket.settimeout(5.0)
                 encrypted_data = self._receive_encrypted_data(self.client_socket)
                 
                 if encrypted_data:
@@ -360,11 +360,11 @@ class SecureClient:
                 return None
                 
         except socket.timeout:
+            # Timeout is normal, just return None
             return None
         except Exception as e:
             print(f"Receive screen data error: {e}")
-            self.disconnect()
-            return None
+            return None  # Don't disconnect on single error
             
     def send_input(self, input_data):
         """Send input data to server"""

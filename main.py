@@ -398,7 +398,7 @@ class RemoteDesktopApp:
                             if input_data:
                                 self.screen_capture.handle_remote_input(input_data)
                                 
-                            time.sleep(0.033)  # ~30 FPS
+                            time.sleep(0.05)  # ~20 FPS for better stability
                             
                         except Exception as e:
                             self.log_to_server(f"Screen sharing error: {str(e)}")
@@ -430,6 +430,7 @@ class RemoteDesktopApp:
                 self.log_to_client("Starting screen data reception...")
                 
                 frame_count = 0
+                no_data_count = 0
                 while self.is_client_connected and self.client.is_connected():
                     try:
                         # Receive screen data
@@ -437,14 +438,21 @@ class RemoteDesktopApp:
                         if screen_data:
                             self.update_remote_viewer(screen_data)
                             frame_count += 1
+                            no_data_count = 0  # Reset counter
                             if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
                                 self.log_to_client(f"Received {frame_count} frames")
                         else:
-                            # Log when no data received
-                            if frame_count == 0:
+                            no_data_count += 1
+                            # Log when no data received, but don't disconnect immediately
+                            if no_data_count == 1:
                                 self.log_to_client("Waiting for screen data from server...")
+                            elif no_data_count > 150:  # ~5 seconds without data
+                                self.log_to_client("No data for 5 seconds, checking connection...")
+                                if not self.client.is_connected():
+                                    break
+                                no_data_count = 0  # Reset and continue trying
                             
-                        time.sleep(0.033)  # ~30 FPS
+                        time.sleep(0.05)  # ~20 FPS for better stability
                         
                     except Exception as e:
                         self.log_to_client(f"Connection error: {str(e)}")
