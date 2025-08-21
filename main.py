@@ -195,17 +195,11 @@ class RemoteDesktopApp:
     def start_server(self):
         """Start the remote desktop server"""
         try:
-            # Ask user about connection type
-            connection_choice = messagebox.askyesnocancel(
-                "Connection Type",
-                "What type of connections do you expect?\n\n" +
-                "YES = Internet connections (different networks)\n" +
-                "NO = Same network only (WiFi/LAN)\n" +
-                "CANCEL = Show both connection options"
-            )
-            
-            # Generate connection key
+            # Generate connection key (user selects IP during this step)
             self.connection_key = self.generate_connection_key()
+            
+            if not self.connection_key:
+                return  # User cancelled IP selection
             
             # Display key
             self.key_display.config(state="normal")
@@ -224,29 +218,13 @@ class RemoteDesktopApp:
             server_thread.start()
             
             self.is_server_running = True
+            self.status_var.set("Server running - Waiting for connections")
             
-            # Show appropriate connection info based on user choice
-            if connection_choice is True:  # Internet connections
-                self.status_var.set("Server running - Internet mode (port forwarding required)")
-                self.log_to_server(f"🌍 INTERNET MODE ACTIVATED")
-                self.log_to_server(f"📋 Connection key: {self.connection_key}")
-                self.log_to_server(f"⚠️ IMPORTANT: Forward port 9999 in your router!")
-                self.log_to_server(f"📱 Tell clients to use: YOUR_PUBLIC_IP:9999")
-                self.log_to_server(f"💡 Get your public IP from: whatismyipaddress.com")
-            elif connection_choice is False:  # LAN only
-                self.status_var.set("Server running - Local network mode")
-                self.log_to_server(f"🏠 LOCAL NETWORK MODE")
-                self.log_to_server(f"📋 Connection key: {self.connection_key}")
-                self.log_to_server(f"📍 Tell clients to use your local IP + :9999")
-                self.log_to_server(f"💡 Find local IP in Network Info button")
-            else:  # Show both
-                self.status_var.set("Server running - Both local and internet")
-                self.log_to_server(f"🌐 UNIVERSAL MODE")
-                self.log_to_server(f"📋 Connection key: {self.connection_key}")
-                self.log_to_server(f"🏠 Local: Use local IP + :9999")
-                self.log_to_server(f"🌍 Internet: Use public IP + :9999 (needs port forwarding)")
-            
-            self.log_to_server(f"✅ Server started successfully - Waiting for connections...")
+            self.log_to_server(f"✅ Server started successfully!")
+            self.log_to_server(f"� Share this key with clients:")
+            self.log_to_server(f"� {self.connection_key}")
+            self.log_to_server(f"🎯 Key contains server IP - clients connect automatically!")
+            self.log_to_server(f"⏳ Waiting for connections...")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to start server: {str(e)}")
@@ -339,34 +317,27 @@ Note: Public IP detection runs in background"""
                 messagebox.showwarning("Warning", "Please enter a connection key")
                 return
             
-            # Ask about connection type
-            is_internet = messagebox.askyesno(
-                "Connection Type",
-                "Are you connecting over the Internet?\n\n" +
-                "YES = Internet connection (different networks)\n" +
-                "NO = Same network (WiFi/LAN)\n\n" +
-                "This helps with connection troubleshooting."
-            )
-            
             # Parse connection key to get server info
             server_info = self.parse_connection_key(key)
             if not server_info:
-                messagebox.showerror("Error", "Invalid connection key")
+                messagebox.showerror("Error", "Invalid connection key format")
                 return
             
-            # Show different guidance based on connection type
-            if is_internet:
-                self.log_to_client("🌍 INTERNET CONNECTION MODE")
-                self.log_to_client("💡 If connection fails:")
-                self.log_to_client("   • Check server's public IP is correct")
-                self.log_to_client("   • Verify port 9999 is forwarded on server's router")
-                self.log_to_client("   • Check both firewalls allow port 9999")
-            else:
-                self.log_to_client("🏠 LOCAL NETWORK MODE")
+            self.log_to_client("🔍 Connection key analysis:")
+            server_ip = server_info['server_ip']
+            
+            # Determine connection type based on IP
+            if server_ip.startswith('192.168.') or server_ip.startswith('10.') or server_ip.startswith('172.'):
+                self.log_to_client("� LOCAL NETWORK connection detected")
                 self.log_to_client("💡 If connection fails:")
                 self.log_to_client("   • Ensure both devices on same WiFi/network")
-                self.log_to_client("   • Check server's local IP is correct")
-                self.log_to_client("   • Try disabling Windows Firewall temporarily")
+                self.log_to_client("   • Check Windows Firewall allows port 9999")
+            else:
+                self.log_to_client("� INTERNET connection detected")
+                self.log_to_client("💡 If connection fails:")
+                self.log_to_client("   • Verify server has port forwarding enabled")
+                self.log_to_client("   • Check both firewalls allow port 9999")
+                self.log_to_client("   • Server might be behind NAT/router")
                 
             # Update UI
             self.connect_btn.config(state="disabled")
@@ -379,7 +350,7 @@ Note: Public IP detection runs in background"""
             
             self.is_client_connected = True
             self.status_var.set("Connecting to server...")
-            self.log_to_client(f"🔄 Attempting connection to: {server_info['server_ip']}:{server_info['server_port']}")
+            self.log_to_client(f"🔄 Connecting to: {server_ip}:{server_info['server_port']}...")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to connect: {str(e)}")
@@ -410,14 +381,40 @@ Note: Public IP detection runs in background"""
             messagebox.showerror("Error", f"Failed to disconnect: {str(e)}")
             
     def generate_connection_key(self):
-        """Generate a secure connection key"""
+        """Generate a secure connection key with user-selected IP"""
+        from improved_networking import NetworkHelper
+        
+        # Get network info
+        network_info = NetworkHelper.get_network_info()
+        
+        # Ask user which IP to include in the connection key
+        ip_choice = messagebox.askyesnocancel(
+            "Connection Key IP",
+            "Which IP should be included in the connection key?\n\n" +
+            f"YES = Public IP ({network_info['public_ip']}) - For Internet\n" +
+            f"NO = Local IP ({network_info['local_ip']}) - For same network\n" +
+            "CANCEL = Manual IP entry"
+        )
+        
+        if ip_choice is True:  # Public IP
+            server_ip = network_info['public_ip']
+            if server_ip == "Unknown":
+                # Fallback to manual entry if public IP detection failed
+                server_ip = self.manual_ip_entry("Public IP detection failed. Enter your public IP:")
+        elif ip_choice is False:  # Local IP
+            server_ip = network_info['local_ip']
+        else:  # Manual entry
+            server_ip = self.manual_ip_entry("Enter the server IP address:")
+        
+        if not server_ip:
+            return None
+        
         # Generate random key components
         session_id = secrets.token_hex(16)
-        server_ip = self.get_local_ip()
         server_port = 9999  # Default port
         timestamp = int(time.time())
         
-        # Create key data
+        # Create key data with selected IP
         key_data = {
             'session_id': session_id,
             'server_ip': server_ip,
@@ -431,7 +428,38 @@ Note: Public IP detection runs in background"""
         key_bytes = key_json.encode('utf-8')
         key_b64 = base64.b64encode(key_bytes).decode('utf-8')
         
+        self.log_to_server(f"✅ Connection key generated with IP: {server_ip}")
+        self.log_to_server(f"📋 Clients should connect to: {server_ip}:9999")
+        
         return key_b64
+    
+    def manual_ip_entry(self, prompt):
+        """Get IP address from user input"""
+        from tkinter import simpledialog
+        
+        ip = simpledialog.askstring("IP Address", prompt + "\n\nExample: 192.168.1.100 or 103.83.212.76")
+        if ip:
+            ip = ip.strip()
+            # Basic validation
+            if self.validate_ip(ip):
+                return ip
+            else:
+                messagebox.showerror("Invalid IP", "Please enter a valid IP address")
+                return self.manual_ip_entry(prompt)
+        return None
+    
+    def validate_ip(self, ip):
+        """Basic IP address validation"""
+        try:
+            parts = ip.split('.')
+            if len(parts) != 4:
+                return False
+            for part in parts:
+                if not (0 <= int(part) <= 255):
+                    return False
+            return True
+        except:
+            return False
         
     def parse_connection_key(self, key):
         """Parse a connection key to extract server information"""
@@ -448,8 +476,13 @@ Note: Public IP detection runs in background"""
             # Check if key is not too old (24 hours)
             current_time = int(time.time())
             if current_time - key_data['timestamp'] > 86400:
-                self.log_to_client("Warning: Connection key is more than 24 hours old")
-                
+                self.log_to_client("⚠️ Warning: Connection key is more than 24 hours old")
+            
+            # Log extracted server info
+            self.log_to_client(f"📋 Connection key decoded successfully!")
+            self.log_to_client(f"🎯 Server IP from key: {key_data['server_ip']}")
+            self.log_to_client(f"🚪 Server Port: {key_data['server_port']}")
+            
             return key_data
             
         except Exception as e:
