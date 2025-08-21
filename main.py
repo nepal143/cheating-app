@@ -380,13 +380,22 @@ class RemoteDesktopApp:
                     frame_count = 0
                     while self.server.is_connected() and self.is_server_running:
                         try:
-                            # Capture screen
+                            # Handle remote input first (more frequently)
+                            for _ in range(5):  # Check input 5 times per frame
+                                try:
+                                    input_data = self.server.receive_input()
+                                    if input_data:
+                                        self.screen_capture.handle_remote_input(input_data)
+                                except Exception as input_error:
+                                    pass  # Don't crash on input errors
+                                    
+                            # Capture and send screen (less frequently)
                             screen_data = self.screen_capture.capture_screen()
                             if screen_data:
                                 success = self.server.send_screen_data(screen_data)
                                 if success:
                                     frame_count += 1
-                                    if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
+                                    if frame_count % 30 == 0:  # Log every 30 frames (~2-3 seconds)
                                         self.log_to_server(f"Sent {frame_count} frames to client")
                                 else:
                                     # Don't log every failed send, just occasional ones
@@ -396,16 +405,7 @@ class RemoteDesktopApp:
                                 if frame_count % 100 == 0:
                                     self.log_to_server("Screen capture issue")
                                 
-                            # Handle remote input
-                            try:
-                                input_data = self.server.receive_input()
-                                if input_data:
-                                    self.screen_capture.handle_remote_input(input_data)
-                            except Exception as input_error:
-                                # Don't crash on input errors
-                                pass
-                                
-                            time.sleep(0.1)  # 10 FPS for better stability
+                            time.sleep(0.08)  # ~12 FPS for screen, but input checked 5x more
                             
                         except Exception as e:
                             self.log_to_server(f"Screen sharing error: {str(e)}")
@@ -497,7 +497,7 @@ class RemoteDesktopApp:
         
     def update_remote_viewer(self, screen_data):
         """Update the remote desktop viewer with new screen data"""
-        if hasattr(self, 'remote_viewer') and self.remote_viewer.viewer_window:
+        if hasattr(self, 'remote_viewer') and self.remote_viewer and self.remote_viewer.viewer_window:
             def update_display():
                 self.remote_viewer.update_display(screen_data)
             self.root.after(0, update_display)

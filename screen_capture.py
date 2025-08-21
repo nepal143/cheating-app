@@ -21,10 +21,10 @@ class ScreenCapture:
     def __init__(self):
         self.screen_width = 1920
         self.screen_height = 1080
-        self.compression_quality = 20  # Much lower quality for speed
-        self.scale_factor = 0.4  # Much smaller scale for speed
+        self.compression_quality = 35  # Better quality for 720p
+        self.scale_factor = 0.6  # Better resolution (closer to 720p on 1080p)
         self.last_capture_time = 0
-        self.min_frame_interval = 0.1  # 10 FPS max for stability
+        self.min_frame_interval = 0.08  # 12-13 FPS for good quality
         
     def capture_screen(self):
         """Capture the current screen and return compressed image data"""
@@ -254,7 +254,7 @@ class RemoteViewer:
     def _on_mouse_move(self, event):
         """Handle mouse movement"""
         # Scale coordinates from viewer to actual screen size
-        scale_factor = 0.4  # This should match the server's scale_factor
+        scale_factor = 0.6  # This should match the server's scale_factor
         actual_x = int(event.x / scale_factor)
         actual_y = int(event.y / scale_factor)
         
@@ -268,7 +268,7 @@ class RemoteViewer:
     def _on_scroll(self, event):
         """Handle mouse scroll"""
         # Scale coordinates from viewer to actual screen size
-        scale_factor = 0.4  # This should match the server's scale_factor
+        scale_factor = 0.6  # This should match the server's scale_factor
         actual_x = int(event.x / scale_factor)
         actual_y = int(event.y / scale_factor)
         
@@ -293,7 +293,7 @@ class RemoteViewer:
     def _send_mouse_event(self, button, x, y):
         """Send mouse event to server"""
         # Scale coordinates from viewer to actual screen size
-        scale_factor = 0.4  # This should match the server's scale_factor
+        scale_factor = 0.6  # This should match the server's scale_factor
         actual_x = int(x / scale_factor)
         actual_y = int(y / scale_factor)
         
