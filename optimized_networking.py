@@ -96,7 +96,7 @@ class OptimizedSecureServer:
             # Pack: header_length(4) + data_length(4) + header + binary_data
             message = struct.pack('!II', header_length, data_length) + header_json + screen_data['data']
             
-            if len(message) > 10000000:  # 10MB safety check
+            if len(message) > 5000000:  # 5MB safety check (increased for better quality)
                 print(f"Message too large: {len(message)} bytes, skipping")
                 return
                 
@@ -217,7 +217,7 @@ class OptimizedSecureClient:
                 header_length, data_length = struct.unpack('!II', lengths)
                 
                 # Safety checks
-                if header_length > 10000 or data_length > 10000000:  # 10KB header, 10MB data max
+                if header_length > 10000 or data_length > 5000000:  # 10KB header, 5MB data max (better quality)
                     print(f"Invalid sizes: header={header_length}, data={data_length}")
                     continue
                     

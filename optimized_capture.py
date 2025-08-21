@@ -12,14 +12,14 @@ import json
 
 class OptimizedScreenCapture:
     def __init__(self):
-        # Much more aggressive settings for guaranteed small data
-        self.target_width = 640   # Fixed target width (like 480p/720p)
-        self.target_height = 480  # Fixed target height 
-        self.jpeg_quality = 40    # Good balance of quality vs size
-        self.max_fps = 60         # High FPS for smooth mouse
+        # Better quality settings while keeping data reasonable
+        self.target_width = 960    # Higher resolution (720p-like)
+        self.target_height = 720   # Much better quality
+        self.jpeg_quality = 60     # Higher quality (was 40)
+        self.max_fps = 60          # Keep high FPS for smooth mouse
         self.min_frame_interval = 1.0 / self.max_fps  # 60 FPS
         self.last_capture_time = 0
-        self.max_data_size = 100000  # 100KB absolute max per frame
+        self.max_data_size = 200000  # 200KB max per frame (reasonable for better quality)
         
     def capture_screen(self):
         """Capture screen with guaranteed small data size"""
@@ -33,21 +33,21 @@ class OptimizedScreenCapture:
             # Capture full screen
             screenshot = ImageGrab.grab()
             
-            # Aggressively resize to fixed dimensions (this guarantees small size)
+            # Aggressively resize to fixed dimensions with high-quality scaling
             screenshot = screenshot.resize((self.target_width, self.target_height), Image.Resampling.LANCZOS)
             
             # Ensure RGB mode
             if screenshot.mode != 'RGB':
                 screenshot = screenshot.convert('RGB')
             
-            # Try different quality levels until we get small enough data
-            for quality in [self.jpeg_quality, 30, 20, 15, 10]:
+            # Try different quality levels until we get acceptable size
+            for quality in [self.jpeg_quality, 50, 40, 30, 25]:  # Higher quality levels
                 img_buffer = io.BytesIO()
                 screenshot.save(img_buffer, format='JPEG', quality=quality, optimize=True)
                 jpeg_data = img_buffer.getvalue()
                 
                 if len(jpeg_data) <= self.max_data_size:
-                    print(f"Screen captured: {len(jpeg_data)} bytes, quality={quality}")
+                    print(f"Screen captured: {len(jpeg_data)} bytes ({len(jpeg_data)/1024:.1f}KB), quality={quality}, resolution={self.target_width}x{self.target_height}")
                     return {
                         'type': 'screen',
                         'width': self.target_width,
@@ -77,8 +77,8 @@ class OptimizedRemoteViewer:
             return
             
         self.viewer_window = tk.Toplevel(self.app.root)
-        self.viewer_window.title("Remote Desktop Viewer")
-        self.viewer_window.geometry("800x600")
+        self.viewer_window.title("Remote Desktop Viewer - High Quality")
+        self.viewer_window.geometry("1200x900")  # Larger window for better quality
         
         # Canvas for displaying the remote screen
         self.canvas = tk.Canvas(self.viewer_window, bg='black')
@@ -116,9 +116,9 @@ class OptimizedRemoteViewer:
             canvas_height = self.canvas.winfo_height()
             
             if canvas_width <= 1:
-                canvas_width = 800
+                canvas_width = 1200  # Better default size
             if canvas_height <= 1:
-                canvas_height = 600
+                canvas_height = 900
                 
             # Resize image to fit canvas
             image = image.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
