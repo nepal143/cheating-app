@@ -24,17 +24,25 @@ class NetworkHelper:
     
     @staticmethod
     def get_public_ip():
-        """Get the public IP address"""
-        try:
-            response = requests.get("https://httpbin.org/ip", timeout=3)
-            return response.json()['origin']
-        except Exception:
+        """Get the public IP address with multiple fallbacks"""
+        services = [
+            "https://api.ipify.org?format=text",
+            "https://httpbin.org/ip",
+            "https://checkip.amazonaws.com",
+            "https://icanhazip.com"
+        ]
+        
+        for service in services:
             try:
-                # Fallback method
-                response = requests.get("https://api.ipify.org?format=text", timeout=3)
-                return response.text.strip()
+                response = requests.get(service, timeout=3)
+                if "ipify" in service or "amazonaws" in service or "icanhazip" in service:
+                    return response.text.strip()
+                elif "httpbin" in service:
+                    return response.json()['origin']
             except Exception:
-                return "Unable to detect (check internet connection)"
+                continue
+        
+        return "Unable to detect"
     
     @staticmethod
     def test_port_open(host, port, timeout=5):
@@ -50,15 +58,20 @@ class NetworkHelper:
     
     @staticmethod
     def get_network_info():
-        """Get comprehensive network information without blocking"""
+        """Get comprehensive network information"""
         local_ip = NetworkHelper.get_local_ip()
         
-        # Return immediately with basic info, detect public IP in background
+        # Try to get public IP with a reasonable timeout
+        try:
+            public_ip = NetworkHelper.get_public_ip()
+        except Exception:
+            public_ip = "Detection failed"
+        
         return {
             'local_ip': local_ip,
-            'public_ip': "Detecting...",
+            'public_ip': public_ip,
             'local_connection': f"{local_ip}:9999",
-            'external_connection': "Detecting..."
+            'external_connection': f"{public_ip}:9999" if public_ip != "Detection failed" else "Not available"
         }
 
 class ImprovedSecureServer:

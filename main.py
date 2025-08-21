@@ -416,27 +416,56 @@ Note: Public IP detection runs in background"""
         """Generate a secure connection key with user-selected IP"""
         from improved_networking import NetworkHelper
         
-        # Get network info
+        # Get network info first
+        self.log_to_server("🔍 Getting network information...")
         network_info = NetworkHelper.get_network_info()
         
-        # Ask user which IP to include in the connection key
-        ip_choice = messagebox.askyesnocancel(
-            "Connection Key IP",
-            "Which IP should be included in the connection key?\n\n" +
-            f"YES = Public IP ({network_info['public_ip']}) - For Internet\n" +
-            f"NO = Local IP ({network_info['local_ip']}) - For same network\n" +
-            "CANCEL = Manual IP entry"
-        )
+        # Show current IPs to user
+        self.log_to_server(f"📍 Local IP: {network_info['local_ip']}")
+        self.log_to_server(f"🌍 Public IP: {network_info['public_ip']}")
         
-        if ip_choice is True:  # Public IP
-            server_ip = network_info['public_ip']
-            if server_ip == "Unknown":
-                # Fallback to manual entry if public IP detection failed
-                server_ip = self.manual_ip_entry("Public IP detection failed. Enter your public IP:")
-        elif ip_choice is False:  # Local IP
-            server_ip = network_info['local_ip']
-        else:  # Manual entry
-            server_ip = self.manual_ip_entry("Enter the server IP address:")
+        # Ask user which IP to include in the connection key
+        if network_info['public_ip'] in ["Unable to detect", "Detection failed"]:
+            # If public IP detection failed, offer manual entry
+            ip_choice = messagebox.askyesnocancel(
+                "Connection Key IP",
+                f"Local IP: {network_info['local_ip']}\n" +
+                f"Public IP: {network_info['public_ip']}\n\n" +
+                "Which IP should be included in the connection key?\n\n" +
+                "YES = Local IP (same network only)\n" +
+                "NO = Manual IP entry (type your own)\n" +
+                "CANCEL = Cancel key generation"
+            )
+        else:
+            # Both IPs available
+            ip_choice = messagebox.askyesnocancel(
+                "Connection Key IP",
+                f"Local IP: {network_info['local_ip']}\n" +
+                f"Public IP: {network_info['public_ip']}\n\n" +
+                "Which IP should be included in the connection key?\n\n" +
+                f"YES = Public IP ({network_info['public_ip']}) - For Internet\n" +
+                f"NO = Local IP ({network_info['local_ip']}) - For same network\n" +
+                "CANCEL = Manual IP entry"
+            )
+        
+        if ip_choice is True:  # Public IP or Local IP (depending on availability)
+            if network_info['public_ip'] not in ["Unable to detect", "Detection failed"]:
+                server_ip = network_info['public_ip']
+                self.log_to_server(f"✅ Using public IP: {server_ip}")
+            else:
+                server_ip = network_info['local_ip']
+                self.log_to_server(f"✅ Using local IP (public detection failed): {server_ip}")
+        elif ip_choice is False:  # Local IP or Manual entry
+            if network_info['public_ip'] not in ["Unable to detect", "Detection failed"]:
+                server_ip = network_info['local_ip']
+                self.log_to_server(f"✅ Using local IP: {server_ip}")
+            else:
+                server_ip = self.manual_ip_entry("Enter the server IP address:")
+        else:  # Manual entry or Cancel
+            if network_info['public_ip'] not in ["Unable to detect", "Detection failed"]:
+                server_ip = self.manual_ip_entry("Enter the server IP address:")
+            else:
+                return None  # User cancelled
         
         if not server_ip or not self.validate_ip(server_ip):
             self.log_to_server(f"❌ Invalid IP address: {server_ip}")
