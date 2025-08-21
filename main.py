@@ -389,14 +389,21 @@ class RemoteDesktopApp:
                                     if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
                                         self.log_to_server(f"Sent {frame_count} frames to client")
                                 else:
-                                    self.log_to_server("Failed to send screen data to client")
+                                    # Don't log every failed send, just occasional ones
+                                    if frame_count % 100 == 0:
+                                        self.log_to_server("Having trouble sending to client")
                             else:
-                                self.log_to_server("Failed to capture screen")
+                                if frame_count % 100 == 0:
+                                    self.log_to_server("Screen capture issue")
                                 
                             # Handle remote input
-                            input_data = self.server.receive_input()
-                            if input_data:
-                                self.screen_capture.handle_remote_input(input_data)
+                            try:
+                                input_data = self.server.receive_input()
+                                if input_data:
+                                    self.screen_capture.handle_remote_input(input_data)
+                            except Exception as input_error:
+                                # Don't crash on input errors
+                                pass
                                 
                             time.sleep(0.05)  # ~20 FPS for better stability
                             
@@ -434,23 +441,27 @@ class RemoteDesktopApp:
                 while self.is_client_connected and self.client.is_connected():
                     try:
                         # Receive screen data
-                        screen_data = self.client.receive_screen_data()
-                        if screen_data:
-                            self.update_remote_viewer(screen_data)
-                            frame_count += 1
-                            no_data_count = 0  # Reset counter
-                            if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
-                                self.log_to_client(f"Received {frame_count} frames")
-                        else:
-                            no_data_count += 1
-                            # Log when no data received, but don't disconnect immediately
-                            if no_data_count == 1:
-                                self.log_to_client("Waiting for screen data from server...")
-                            elif no_data_count > 150:  # ~5 seconds without data
-                                self.log_to_client("No data for 5 seconds, checking connection...")
-                                if not self.client.is_connected():
-                                    break
-                                no_data_count = 0  # Reset and continue trying
+                        try:
+                            screen_data = self.client.receive_screen_data()
+                            if screen_data:
+                                self.update_remote_viewer(screen_data)
+                                frame_count += 1
+                                no_data_count = 0  # Reset counter
+                                if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
+                                    self.log_to_client(f"Received {frame_count} frames")
+                            else:
+                                no_data_count += 1
+                                # Log when no data received, but don't disconnect immediately
+                                if no_data_count == 1:
+                                    self.log_to_client("Waiting for screen data from server...")
+                                elif no_data_count > 100:  # ~5 seconds without data
+                                    self.log_to_client("No data for 5 seconds, checking connection...")
+                                    if not self.client.is_connected():
+                                        break
+                                    no_data_count = 0  # Reset and continue trying
+                        except Exception as data_error:
+                            self.log_to_client(f"Screen data error: {str(data_error)}")
+                            # Don't break, just continue trying
                             
                         time.sleep(0.05)  # ~20 FPS for better stability
                         

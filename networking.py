@@ -162,7 +162,7 @@ class SecureServer:
                 
         except Exception as e:
             print(f"Send screen data error: {e}")
-            self._disconnect_client()
+            # Don't disconnect immediately, just log the error
             return False
             
     def receive_input(self):
@@ -222,9 +222,18 @@ class SecureServer:
                 return None
             length = struct.unpack('!I', length_data)[0]
             
+            # Sanity check on length to prevent memory issues
+            if length > 50000000:  # 50MB max
+                print(f"Data too large: {length} bytes")
+                return None
+                
             # Receive data
             return self._receive_exact(sock, length)
-        except:
+        except struct.error as e:
+            print(f"Struct unpack error: {e}")
+            return None
+        except Exception as e:
+            print(f"Receive raw data error: {e}")
             return None
             
     def _send_encrypted_data(self, sock, data):
@@ -364,7 +373,8 @@ class SecureClient:
             return None
         except Exception as e:
             print(f"Receive screen data error: {e}")
-            return None  # Don't disconnect on single error
+            # Don't crash on errors, just skip this frame
+            return None
             
     def send_input(self, input_data):
         """Send input data to server"""
@@ -399,8 +409,18 @@ class SecureClient:
             if not length_data:
                 return None
             length = struct.unpack('!I', length_data)[0]
+            
+            # Sanity check on length to prevent memory issues
+            if length > 50000000:  # 50MB max
+                print(f"Data too large: {length} bytes")
+                return None
+                
             return self._receive_exact(sock, length)
-        except:
+        except struct.error as e:
+            print(f"Client struct unpack error: {e}")
+            return None
+        except Exception as e:
+            print(f"Client receive raw data error: {e}")
             return None
             
     def _send_encrypted_data(self, sock, data):
