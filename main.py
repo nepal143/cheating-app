@@ -281,6 +281,11 @@ class RemoteDesktopApp:
                 self.client.disconnect()
                 self.client = None
                 
+            # Close remote viewer if open
+            if hasattr(self, 'remote_viewer'):
+                self.remote_viewer.close()
+                delattr(self, 'remote_viewer')
+                
             self.is_client_connected = False
             
             # Update UI
@@ -372,12 +377,21 @@ class RemoteDesktopApp:
                     self.status_var.set("Client connected - Sharing desktop")
                     
                     # Start screen sharing
+                    frame_count = 0
                     while self.server.is_connected() and self.is_server_running:
                         try:
                             # Capture screen
                             screen_data = self.screen_capture.capture_screen()
                             if screen_data:
-                                self.server.send_screen_data(screen_data)
+                                success = self.server.send_screen_data(screen_data)
+                                if success:
+                                    frame_count += 1
+                                    if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
+                                        self.log_to_server(f"Sent {frame_count} frames to client")
+                                else:
+                                    self.log_to_server("Failed to send screen data to client")
+                            else:
+                                self.log_to_server("Failed to capture screen")
                                 
                             # Handle remote input
                             input_data = self.server.receive_input()
@@ -411,12 +425,24 @@ class RemoteDesktopApp:
                 # Open remote desktop viewer window
                 self.open_remote_viewer()
                 
+                # Give viewer time to open
+                time.sleep(0.5)
+                self.log_to_client("Starting screen data reception...")
+                
+                frame_count = 0
                 while self.is_client_connected and self.client.is_connected():
                     try:
                         # Receive screen data
                         screen_data = self.client.receive_screen_data()
                         if screen_data:
                             self.update_remote_viewer(screen_data)
+                            frame_count += 1
+                            if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
+                                self.log_to_client(f"Received {frame_count} frames")
+                        else:
+                            # Log when no data received
+                            if frame_count == 0:
+                                self.log_to_client("Waiting for screen data from server...")
                             
                         time.sleep(0.033)  # ~30 FPS
                         
@@ -427,20 +453,35 @@ class RemoteDesktopApp:
             else:
                 self.log_to_client("Failed to connect to server")
                 self.status_var.set("Connection failed")
+                # Update UI on connection failure
+                self.root.after(0, lambda: self.connect_btn.config(state="normal"))
+                self.root.after(0, lambda: self.disconnect_btn.config(state="disabled"))
                 
         except Exception as e:
             self.log_to_client(f"Client error: {str(e)}")
             self.root.after(0, lambda: messagebox.showerror("Connection Error", str(e)))
+            # Reset UI on error
+            self.root.after(0, lambda: self.connect_btn.config(state="normal"))
+            self.root.after(0, lambda: self.disconnect_btn.config(state="disabled"))
             
     def open_remote_viewer(self):
         """Open the remote desktop viewer window"""
-        # This would open a new window to display the remote desktop
+        from screen_capture import RemoteViewer
+        
+        def create_viewer():
+            self.remote_viewer = RemoteViewer(self)
+            self.remote_viewer.create_viewer_window()
+            
+        # Create viewer in main thread
+        self.root.after(0, create_viewer)
         self.log_to_client("Remote desktop viewer opened")
         
     def update_remote_viewer(self, screen_data):
         """Update the remote desktop viewer with new screen data"""
-        # This would update the viewer window with new screen data
-        pass
+        if hasattr(self, 'remote_viewer') and self.remote_viewer.viewer_window:
+            def update_display():
+                self.remote_viewer.update_display(screen_data)
+            self.root.after(0, update_display)
         
     def log_to_server(self, message):
         """Add a message to the server log"""

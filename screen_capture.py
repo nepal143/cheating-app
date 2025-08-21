@@ -189,35 +189,43 @@ class RemoteViewer:
             # Create image from data
             image = Image.open(io.BytesIO(screen_data['data']))
             
+            # Update canvas to get current size
+            self.canvas.update_idletasks()
+            
             # Resize to fit canvas
             canvas_width = self.canvas.winfo_width()
             canvas_height = self.canvas.winfo_height()
             
-            if canvas_width > 1 and canvas_height > 1:
-                # Calculate scaling to fit while maintaining aspect ratio
-                img_ratio = image.width / image.height
-                canvas_ratio = canvas_width / canvas_height
+            # Use default size if canvas not yet rendered
+            if canvas_width <= 1:
+                canvas_width = 1024
+            if canvas_height <= 1:
+                canvas_height = 768
                 
-                if img_ratio > canvas_ratio:
-                    # Image is wider, scale by width
-                    new_width = canvas_width
-                    new_height = int(canvas_width / img_ratio)
-                else:
-                    # Image is taller, scale by height
-                    new_height = canvas_height
-                    new_width = int(canvas_height * img_ratio)
-                    
-                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Calculate scaling to fit while maintaining aspect ratio
+            img_ratio = image.width / image.height
+            canvas_ratio = canvas_width / canvas_height
+            
+            if img_ratio > canvas_ratio:
+                # Image is wider, scale by width
+                new_width = canvas_width
+                new_height = int(canvas_width / img_ratio)
+            else:
+                # Image is taller, scale by height
+                new_height = canvas_height
+                new_width = int(canvas_height * img_ratio)
                 
-                # Convert to PhotoImage
-                photo = ImageTk.PhotoImage(image)
-                
-                # Update canvas
-                self.canvas.delete("all")
-                self.canvas.create_image(canvas_width//2, canvas_height//2, image=photo)
-                
-                # Keep reference to prevent garbage collection
-                self.current_image = photo
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Convert to PhotoImage
+            photo = ImageTk.PhotoImage(image)
+            
+            # Update canvas
+            self.canvas.delete("all")
+            self.canvas.create_image(canvas_width//2, canvas_height//2, image=photo)
+            
+            # Keep reference to prevent garbage collection
+            self.current_image = photo
                 
         except Exception as e:
             print(f"Display update error: {e}")
