@@ -19,8 +19,8 @@ from pystray import MenuItem as item
 import sys
 import os
 
-from screen_capture import ScreenCapture
-from networking import SecureServer, SecureClient
+from optimized_capture import OptimizedScreenCapture, OptimizedRemoteViewer, OptimizedInputHandler
+from optimized_networking import OptimizedSecureServer, OptimizedSecureClient
 from crypto_utils import CryptoManager
 
 class RemoteDesktopApp:
@@ -41,8 +41,9 @@ class RemoteDesktopApp:
         self.tray_icon = None
         self.is_hidden = False
         
-        # Initialize components
-        self.screen_capture = ScreenCapture()
+        # Initialize components with optimized versions
+        self.screen_capture = OptimizedScreenCapture()
+        self.input_handler = OptimizedInputHandler()
         self.crypto_manager = CryptoManager()
         
         self.setup_ui()
@@ -205,7 +206,7 @@ class RemoteDesktopApp:
             self.copy_key_btn.config(state="normal")
             
             # Start server
-            self.server = SecureServer(self.crypto_manager)
+            self.server = OptimizedSecureServer(self.crypto_manager)
             server_thread = threading.Thread(target=self.run_server, daemon=True)
             server_thread.start()
             
@@ -262,7 +263,7 @@ class RemoteDesktopApp:
             self.disconnect_btn.config(state="normal")
             
             # Start client
-            self.client = SecureClient(self.crypto_manager)
+            self.client = OptimizedSecureClient(self.crypto_manager)
             client_thread = threading.Thread(target=self.run_client, args=(server_info,), daemon=True)
             client_thread.start()
             
@@ -423,6 +424,9 @@ class RemoteDesktopApp:
     def run_client(self, server_info):
         """Run the client in a separate thread"""
         try:
+            # Set up the callback for receiving screen data
+            self.client.set_receive_callback(self.update_remote_viewer)
+            
             success = self.client.connect(server_info['server_ip'], server_info['server_port'])
             
             if success:
@@ -432,42 +436,11 @@ class RemoteDesktopApp:
                 # Open remote desktop viewer window
                 self.open_remote_viewer()
                 
-                # Give viewer time to open
-                time.sleep(0.5)
-                self.log_to_client("Starting screen data reception...")
+                self.log_to_client("Screen data reception started automatically")
                 
-                frame_count = 0
-                no_data_count = 0
-                while self.is_client_connected and self.client.is_connected():
-                    try:
-                        # Receive screen data
-                        try:
-                            screen_data = self.client.receive_screen_data()
-                            if screen_data:
-                                self.update_remote_viewer(screen_data)
-                                frame_count += 1
-                                no_data_count = 0  # Reset counter
-                                if frame_count % 30 == 0:  # Log every 30 frames (~1 second)
-                                    self.log_to_client(f"Received {frame_count} frames")
-                            else:
-                                no_data_count += 1
-                                # Log when no data received, but don't disconnect immediately
-                                if no_data_count == 1:
-                                    self.log_to_client("Waiting for screen data from server...")
-                                elif no_data_count > 100:  # ~5 seconds without data
-                                    self.log_to_client("No data for 5 seconds, checking connection...")
-                                    if not self.client.is_connected():
-                                        break
-                                    no_data_count = 0  # Reset and continue trying
-                        except Exception as data_error:
-                            self.log_to_client(f"Screen data error: {str(data_error)}")
-                            # Don't break, just continue trying
-                            
-                        time.sleep(0.016)  # 60+ FPS for fast response
-                        
-                    except Exception as e:
-                        self.log_to_client(f"Connection error: {str(e)}")
-                        break
+                # Keep connection alive while connected
+                while self.is_client_connected and self.client.is_connected:
+                    time.sleep(1)  # Just keep alive, data comes through callback
                         
             else:
                 self.log_to_client("Failed to connect to server")
@@ -485,10 +458,9 @@ class RemoteDesktopApp:
             
     def open_remote_viewer(self):
         """Open the remote desktop viewer window"""
-        from screen_capture import RemoteViewer
         
         def create_viewer():
-            self.remote_viewer = RemoteViewer(self)
+            self.remote_viewer = OptimizedRemoteViewer(self)
             self.remote_viewer.create_viewer_window()
             
         # Create viewer in main thread
