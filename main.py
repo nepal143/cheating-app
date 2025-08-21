@@ -20,7 +20,8 @@ import sys
 import os
 
 from optimized_capture import OptimizedScreenCapture, OptimizedRemoteViewer, OptimizedInputHandler
-from optimized_networking import OptimizedSecureServer, OptimizedSecureClient
+from improved_networking import ImprovedSecureServer, NetworkHelper
+from optimized_networking import OptimizedSecureClient
 from crypto_utils import CryptoManager
 
 class RemoteDesktopApp:
@@ -206,7 +207,7 @@ class RemoteDesktopApp:
             self.copy_key_btn.config(state="normal")
             
             # Start server
-            self.server = OptimizedSecureServer(self.crypto_manager)
+            self.server = ImprovedSecureServer(self.crypto_manager)
             server_thread = threading.Thread(target=self.run_server, daemon=True)
             server_thread.start()
             
@@ -368,54 +369,28 @@ class RemoteDesktopApp:
     def run_server(self):
         """Run the server in a separate thread"""
         try:
-            self.server.start(port=9999)
-            self.log_to_server("Server listening for connections...")
+            success, network_info = self.server.start(port=9999)
             
-            while self.is_server_running:
-                # Handle incoming connections
-                if self.server.has_client():
-                    self.log_to_server("Client connected successfully")
-                    self.status_var.set("Client connected - Sharing desktop")
+            if success and network_info:
+                self.log_to_server("Server started successfully!")
+                self.log_to_server(f"Local connection: {network_info['local_connection']}")
+                self.log_to_server(f"External connection: {network_info['external_connection']}")
+                self.log_to_server("Share the external IP with remote users")
+                self.log_to_server("Note: Port 9999 must be forwarded in your router for external access")
+                self.log_to_server("Waiting for client connections...")
+                
+                # Keep server alive while running
+                while self.is_server_running:
+                    time.sleep(1)
                     
-                    # Start screen sharing
-                    frame_count = 0
-                    while self.server.is_connected() and self.is_server_running:
-                        try:
-                            # Handle remote input first (more frequently)
-                            for _ in range(5):  # Check input 5 times per frame
-                                try:
-                                    input_data = self.server.receive_input()
-                                    if input_data:
-                                        self.screen_capture.handle_remote_input(input_data)
-                                except Exception as input_error:
-                                    pass  # Don't crash on input errors
-                                    
-                            # Capture and send screen (less frequently)
-                            screen_data = self.screen_capture.capture_screen()
-                            if screen_data:
-                                success = self.server.send_screen_data(screen_data)
-                                if success:
-                                    frame_count += 1
-                                    if frame_count % 30 == 0:  # Log every 30 frames (~2-3 seconds)
-                                        self.log_to_server(f"Sent {frame_count} frames to client")
-                                else:
-                                    # Don't log every failed send, just occasional ones
-                                    if frame_count % 100 == 0:
-                                        self.log_to_server("Having trouble sending to client")
-                            else:
-                                if frame_count % 100 == 0:
-                                    self.log_to_server("Screen capture issue")
-                                
-                            time.sleep(0.016)  # 60+ FPS for both screen and input
-                            
-                        except Exception as e:
-                            self.log_to_server(f"Screen sharing error: {str(e)}")
-                            break
-                            
-                    self.log_to_server("Client disconnected")
-                    self.status_var.set("Server running - Waiting for connections")
-                    
-                time.sleep(0.1)
+            else:
+                self.log_to_server("Failed to start server. Check if port 9999 is available.")
+                
+        except Exception as e:
+            self.log_to_server(f"Server error: {e}")
+        finally:
+            if hasattr(self, 'server') and self.server:
+                self.server.stop()
                 
         except Exception as e:
             self.log_to_server(f"Server error: {str(e)}")
