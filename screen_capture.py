@@ -9,6 +9,7 @@ import io
 import json
 import threading
 import time
+import zlib
 
 try:
     import cv2
@@ -21,10 +22,10 @@ class ScreenCapture:
     def __init__(self):
         self.screen_width = 1920
         self.screen_height = 1080
-        self.compression_quality = 35  # Better quality for 720p
-        self.scale_factor = 0.6  # Better resolution (closer to 720p on 1080p)
+        self.compression_quality = 25  # Lower quality to prevent huge packets
+        self.scale_factor = 0.5  # Smaller scale to prevent huge packets
         self.last_capture_time = 0
-        self.min_frame_interval = 0.08  # 12-13 FPS for good quality
+        self.min_frame_interval = 0.1  # 10 FPS to reduce data flow
         
     def capture_screen(self):
         """Capture the current screen and return compressed image data"""
@@ -38,20 +39,53 @@ class ScreenCapture:
             # Capture full screen
             screenshot = ImageGrab.grab()
             
-            # Resize for better performance
+            # Resize for better performance (much more aggressive)
             new_width = int(screenshot.width * self.scale_factor)
             new_height = int(screenshot.height * self.scale_factor)
             screenshot = screenshot.resize((new_width, new_height), Image.Resampling.NEAREST)
             
-            # Convert to JPEG for compression
+            # Convert to RGB first to ensure proper JPEG encoding
+            if screenshot.mode != 'RGB':
+                screenshot = screenshot.convert('RGB')
+            
+            # Convert to JPEG with extremely aggressive compression
             img_buffer = io.BytesIO()
-            screenshot.save(img_buffer, format='JPEG', quality=self.compression_quality, optimize=True)
+            screenshot.save(img_buffer, format='JPEG', quality=15, optimize=True)
+            
+            # Get the compressed data and validate size
+            compressed_data = img_buffer.getvalue()
+            data_size = len(compressed_data)
+            
+            # Safety check - if data is still too large, reduce quality even further
+            if data_size > 500000:  # 500KB limit - very strict
+                img_buffer = io.BytesIO()
+                screenshot.save(img_buffer, format='JPEG', quality=10, optimize=True)
+                compressed_data = img_buffer.getvalue()
+                data_size = len(compressed_data)
+                print(f"Reduced quality to 10 due to size: {data_size} bytes")
+                
+            # Final safety check
+            if data_size > 1000000:  # 1MB absolute limit
+                print(f"Image still too large: {data_size} bytes, skipping frame")
+                return None
+            
+            # Add additional zlib compression for even smaller packets
+            try:
+                final_compressed = zlib.compress(compressed_data, level=9)
+                final_size = len(final_compressed)
+                if final_size < data_size:  # Only use if it actually reduces size
+                    compressed_data = final_compressed
+                    data_size = final_size
+                    print(f"Zlib compression: {data_size} bytes")
+            except Exception as e:
+                print(f"Zlib compression failed: {e}")
+                # Continue with JPEG-only compression
             
             screen_data = {
                 'type': 'screen',
                 'width': new_width,
                 'height': new_height,
-                'data': img_buffer.getvalue(),
+                'data': compressed_data,
                 'timestamp': current_time
             }
             
