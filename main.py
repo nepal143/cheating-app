@@ -56,17 +56,17 @@ class RemoteDesktopApp:
     def setup_ui(self):
         """Setup the main user interface"""
         # Main notebook for tabs
-        notebook = ttk.Notebook(self.root)
-        notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
         
         # Server tab
-        server_frame = ttk.Frame(notebook)
-        notebook.add(server_frame, text="Host (Server)")
+        server_frame = ttk.Frame(self.notebook)
+        self.notebook.add(server_frame, text="Host (Server)")
         self.setup_server_tab(server_frame)
         
         # Client tab
-        client_frame = ttk.Frame(notebook)
-        notebook.add(client_frame, text="Connect (Client)")
+        client_frame = ttk.Frame(self.notebook)
+        self.notebook.add(client_frame, text="Connect (Client)")
         self.setup_client_tab(client_frame)
         
         # Status bar
@@ -360,11 +360,12 @@ Note: Public IP detection runs in background"""
             error_msg = str(e)
             self.log_to_client(f"❌ Connection setup error: {error_msg}")
             
-            # Show reverse connection suggestion for timeouts
-            if "10060" in error_msg or "timeout" in error_msg.lower() or "Failed to connect" in error_msg:
-                self.log_to_client("🔧 Connection Timeout - Port Forwarding Issue:")
+            # Show reverse connection suggestion for timeouts and connection refused
+            if any(code in error_msg for code in ["10060", "10061", "timeout", "Failed to connect", "refused"]):
+                self.log_to_client("🔧 Connection Failed - Port Forwarding Issue:")
                 self.log_to_client("   • Server's router isn't forwarding port 9999")
                 self.log_to_client("   • Firewall blocking the connection")
+                self.log_to_client("   • Server not accessible from internet")
                 self.log_to_client("")
                 self.log_to_client("💡 INSTANT FIX - Try Reverse Connection:")
                 self.log_to_client("   1. Person sharing screen: Use CLIENT mode")
