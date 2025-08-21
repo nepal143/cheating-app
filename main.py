@@ -353,8 +353,40 @@ Note: Public IP detection runs in background"""
             self.log_to_client(f"🔄 Connecting to: {server_ip}:{server_info['server_port']}...")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to connect: {str(e)}")
-            self.log_to_client(f"❌ Connection error: {str(e)}")
+            error_msg = str(e)
+            self.log_to_client(f"❌ Connection setup error: {error_msg}")
+            
+            # Provide specific help for common errors
+            if "getaddrinfo failed" in error_msg:
+                self.log_to_client("🔧 DNS/Network Resolution Error:")
+                self.log_to_client("   • Check internet connection")
+                self.log_to_client("   • Verify IP address is correct")
+                self.log_to_client("   • Connection key might have invalid IP")
+                self.log_to_client("   • Try restarting network adapter")
+                messagebox.showerror("Network Error", 
+                    "Cannot resolve server address.\n\n" +
+                    "Possible causes:\n" +
+                    "• Internet connection down\n" +
+                    "• Invalid IP in connection key\n" +
+                    "• Network/DNS configuration issue\n" +
+                    "• Firewall blocking connection")
+            elif "10060" in error_msg:
+                self.log_to_client("🔧 Connection Timeout Error:")
+                self.log_to_client("   • Server might be offline")
+                self.log_to_client("   • Port 9999 blocked by firewall")
+                self.log_to_client("   • Router port forwarding needed")
+                messagebox.showerror("Connection Timeout", 
+                    "Cannot connect to server.\n\n" +
+                    "Please check:\n" +
+                    "• Server is running\n" +
+                    "• Port 9999 is open\n" +
+                    "• Router port forwarding (for internet)")
+            else:
+                messagebox.showerror("Error", f"Failed to connect: {error_msg}")
+                
+            # Reset UI state
+            self.connect_btn.config(state="normal")
+            self.disconnect_btn.config(state="disabled")
             
     def disconnect_from_server(self):
         """Disconnect from the remote desktop server"""
@@ -406,7 +438,9 @@ Note: Public IP detection runs in background"""
         else:  # Manual entry
             server_ip = self.manual_ip_entry("Enter the server IP address:")
         
-        if not server_ip:
+        if not server_ip or not self.validate_ip(server_ip):
+            self.log_to_server(f"❌ Invalid IP address: {server_ip}")
+            messagebox.showerror("Invalid IP", f"Invalid IP address: {server_ip}\nPlease try again.")
             return None
         
         # Generate random key components
@@ -449,17 +483,43 @@ Note: Public IP detection runs in background"""
         return None
     
     def validate_ip(self, ip):
-        """Basic IP address validation"""
+        """Enhanced IP address validation"""
+        if not ip or not isinstance(ip, str):
+            return False
+            
+        ip = ip.strip()
+        
+        # Check for empty or invalid characters
+        if not ip or any(c not in '0123456789.' for c in ip):
+            return False
+            
         try:
             parts = ip.split('.')
             if len(parts) != 4:
                 return False
             for part in parts:
-                if not (0 <= int(part) <= 255):
+                if not part or int(part) < 0 or int(part) > 255:
                     return False
             return True
-        except:
+        except (ValueError, AttributeError):
             return False
+    
+    def test_ip_connectivity(self, ip):
+        """Test if an IP address is reachable"""
+        try:
+            import socket
+            # Try to resolve the IP
+            socket.gethostbyaddr(ip)
+            return True
+        except:
+            try:
+                # Try basic socket connection test
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(2)  # 2 second timeout
+                    result = s.connect_ex((ip, 9999))
+                    return result == 0  # 0 means success
+            except:
+                return False
         
     def parse_connection_key(self, key):
         """Parse a connection key to extract server information"""
