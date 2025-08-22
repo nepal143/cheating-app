@@ -9,3 +9,4 @@ requests>=2.31.0
 qrcode>=7.4.2
 psutil>=5.9.0
 pywin32>=306
+keyboard>=0.13.5

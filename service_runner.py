@@ -157,8 +157,8 @@ def run_as_service():
         time.sleep(5)
         
         # Import and run main application
-        from main import RemoteDesktopApp
-        app = RemoteDesktopApp()
+        from main import IgniteRemoteApp
+        app = IgniteRemoteApp()
         app.run()
         
     except Exception as e:
