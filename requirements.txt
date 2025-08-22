@@ -7,3 +7,5 @@ pyautogui>=0.9.54
 websocket-client>=1.6.0
 requests>=2.31.0
 qrcode>=7.4.2
+psutil>=5.9.0
+pywin32>=306
