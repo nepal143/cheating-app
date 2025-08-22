@@ -1017,25 +1017,36 @@ Note: Public IP detection runs in background"""
     def start_relay_screen_sharing(self):
         """Start sharing screen via relay"""
         def share_loop():
+            frame_time = 1/15  # 15 FPS for better performance (was 30 FPS)
+            last_capture_time = 0
+            
             while self.relay_connected and self.relay_mode == 'host':
                 try:
-                    # Capture screen using optimized capture
-                    screen_info = self.screen_capture.capture_screen()
+                    current_time = time.time()
                     
-                    if screen_info and 'data' in screen_info:
-                        # Send the JPEG data directly (it will be base64 encoded by relay_client)
-                        if self.relay_client.send_screen_data(screen_info['data']):
-                            # Screen sent successfully
-                            pass
-                        else:
-                            self.log_to_relay("❌ Failed to send screen data")
-                            break
-                    
-                    time.sleep(1/30)  # 30 FPS
+                    # Only capture if enough time has passed (consistent timing)
+                    if current_time - last_capture_time >= frame_time:
+                        # Capture screen using optimized capture
+                        screen_info = self.screen_capture.capture_screen()
+                        
+                        if screen_info and 'data' in screen_info:
+                            # Send the JPEG data directly (it will be base64 encoded by relay_client)
+                            if self.relay_client.send_screen_data(screen_info['data']):
+                                last_capture_time = current_time
+                            else:
+                                self.log_to_relay("❌ Failed to send screen data")
+                                # Don't break immediately, try again
+                        
+                        # Small sleep to prevent CPU overload
+                        time.sleep(0.01)  # 10ms
+                    else:
+                        # Sleep until next frame is due
+                        time.sleep(0.005)  # 5ms
                     
                 except Exception as e:
                     self.log_to_relay(f"❌ Screen sharing error: {e}")
-                    break
+                    time.sleep(0.1)  # Brief pause on error
+                    continue  # Don't break, try to recover
                     
         threading.Thread(target=share_loop, daemon=True).start()
     
@@ -1068,8 +1079,10 @@ Note: Public IP detection runs in background"""
         """Handle received input data from relay"""
         try:
             if self.relay_mode == 'host':
-                # Process input on host side
-                self.input_handler.process_input(data)
+                # Log input for debugging
+                self.log_to_relay(f"🎮 Received input: {data.get('type', 'unknown')} - {data}")
+                # Process input on host side using the correct method
+                self.input_handler.handle_remote_input(data)
         except Exception as e:
             self.log_to_relay(f"❌ Error handling input: {e}")
     

@@ -93,7 +93,9 @@ class OptimizedRemoteViewer:
         
         # Keyboard event bindings
         self.viewer_window.bind("<KeyPress>", self._on_key_press)
+        self.viewer_window.bind("<KeyRelease>", self._on_key_release)  # Add key release
         self.viewer_window.focus_set()
+        self.canvas.focus_set()  # Also set focus on canvas for better event capture
         
         # Handle window close
         self.viewer_window.protocol("WM_DELETE_WINDOW", self.close)
@@ -166,7 +168,37 @@ class OptimizedRemoteViewer:
         
     def _on_key_press(self, event):
         """Handle key press"""
-        self._send_key_event(event.keysym)
+        # Map special keys
+        key_mapping = {
+            'Return': 'enter',
+            'BackSpace': 'backspace', 
+            'Tab': 'tab',
+            'Escape': 'esc',
+            'Delete': 'delete',
+            'Home': 'home',
+            'End': 'end',
+            'Prior': 'pageup',
+            'Next': 'pagedown',
+            'Up': 'up',
+            'Down': 'down',
+            'Left': 'left', 
+            'Right': 'right',
+            'Control_L': 'ctrl',
+            'Control_R': 'ctrl',
+            'Alt_L': 'alt',
+            'Alt_R': 'alt',
+            'Shift_L': 'shift',
+            'Shift_R': 'shift',
+            'space': 'space'
+        }
+        
+        key = key_mapping.get(event.keysym, event.keysym)
+        self._send_key_event(key)
+        
+    def _on_key_release(self, event):
+        """Handle key release - for special keys like ctrl, alt, shift"""
+        # For now, we'll just handle key press events
+        pass
         
     def _send_mouse_event(self, button, x, y):
         """Send mouse event to remote"""
@@ -188,6 +220,9 @@ class OptimizedRemoteViewer:
             'x': scaled_x,
             'y': scaled_y
         }
+        
+        # Debug logging
+        print(f"Sending mouse event: {input_data}")
         
         # Send via relay or direct connection
         if hasattr(self.app, 'relay_connected') and self.app.relay_connected and self.app.relay_mode == 'client':
@@ -227,6 +262,9 @@ class OptimizedRemoteViewer:
             'type': 'key_press',
             'key': key
         }
+        
+        # Debug logging
+        print(f"Sending key event: {input_data}")
         
         # Send via relay or direct connection
         if hasattr(self.app, 'relay_connected') and self.app.relay_connected and self.app.relay_mode == 'client':
@@ -281,12 +319,27 @@ class OptimizedInputHandler:
             print(f"Mouse move error: {e}")
             
     def _handle_key_press(self, data):
-        """Handle remote key press"""
+        """Handle remote key press with better key mapping"""
         try:
             import pyautogui
             pyautogui.PAUSE = 0
-            pyautogui.press(data['key'])
+            
+            key = data['key']
+            
+            # Handle special keys and combinations
+            if key in ['ctrl', 'alt', 'shift']:
+                # For modifier keys, we might need key combinations
+                pyautogui.keyDown(key)
+                pyautogui.keyUp(key)
+            elif '+' in key:
+                # Handle key combinations like 'ctrl+c', 'alt+tab'
+                keys = key.split('+')
+                pyautogui.hotkey(*keys)
+            else:
+                # Regular key press
+                pyautogui.press(key)
+                
         except ImportError:
             print("PyAutoGUI not available")
         except Exception as e:
-            print(f"Key press error: {e}")
+            print(f"Key press error: {e} for key: {data.get('key', 'unknown')}")
