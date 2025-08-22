@@ -19,7 +19,7 @@ class RelayRemoteDesktop:
         self.root.configure(bg='#2C3E50')
         
         # Relay client
-        self.relay = RelayClient("wss://your-app-name.onrender.com")  # Change this!
+        self.relay = RelayClient("wss://sync-hello.onrender.com")  # Your deployed server!
         self.session_id = None
         self.connected = False
         

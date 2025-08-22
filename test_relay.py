@@ -6,7 +6,7 @@ import requests
 import json
 
 def test_relay_server():
-    base_url = "http://localhost:3000"
+    base_url = "https://sync-hello.onrender.com"
     
     print("🧪 Testing Relay Server...")
     

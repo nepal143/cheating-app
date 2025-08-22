@@ -13,7 +13,7 @@ import base64
 from typing import Optional, Callable
 
 class RelayClient:
-    def __init__(self, server_url: str = "wss://your-app.onrender.com"):
+    def __init__(self, server_url: str = "wss://sync-hello.onrender.com"):
         self.server_url = server_url
         self.http_url = server_url.replace('wss://', 'https://').replace('ws://', 'http://')
         self.ws: Optional[websocket.WebSocket] = None
@@ -250,7 +250,7 @@ class RelayClient:
 # Example usage
 if __name__ == "__main__":
     # Test the relay client
-    relay = RelayClient("ws://localhost:3000")  # Local testing
+    relay = RelayClient("wss://sync-hello.onrender.com")  # Your deployed server
     
     def on_screen_received(data):
         print(f"📺 Received screen data: {len(data)} bytes")
