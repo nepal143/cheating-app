@@ -23,6 +23,7 @@ from optimized_capture import OptimizedScreenCapture, OptimizedRemoteViewer, Opt
 from improved_networking import ImprovedSecureServer, NetworkHelper
 from optimized_networking import OptimizedSecureClient
 from crypto_utils import CryptoManager
+from relay_client import RelayClient
 
 class RemoteDesktopApp:
     def __init__(self):
@@ -37,6 +38,12 @@ class RemoteDesktopApp:
         self.server = None
         self.client = None
         self.connection_key = ""
+        
+        # Relay server functionality
+        self.relay_client = RelayClient("wss://sync-hello.onrender.com")
+        self.relay_session_id = None
+        self.relay_connected = False
+        self.relay_mode = None  # 'host' or 'client'
         
         # System tray
         self.tray_icon = None
@@ -59,14 +66,19 @@ class RemoteDesktopApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
         
+        # Relay Server tab (NEW - No Port Forwarding!)
+        relay_frame = ttk.Frame(self.notebook)
+        self.notebook.add(relay_frame, text="🌐 Cloud Relay (Easy)")
+        self.setup_relay_tab(relay_frame)
+        
         # Server tab
         server_frame = ttk.Frame(self.notebook)
-        self.notebook.add(server_frame, text="Host (Server)")
+        self.notebook.add(server_frame, text="🖥️ Direct Host")
         self.setup_server_tab(server_frame)
         
         # Client tab
         client_frame = ttk.Frame(self.notebook)
-        self.notebook.add(client_frame, text="Connect (Client)")
+        self.notebook.add(client_frame, text="👀 Direct Connect")
         self.setup_client_tab(client_frame)
         
         # Status bar
@@ -161,6 +173,94 @@ class RemoteDesktopApp:
         
         self.client_log = scrolledtext.ScrolledText(log_frame, height=8, state="disabled")
         self.client_log.pack(fill="both", expand=True)
+    
+    def setup_relay_tab(self, parent):
+        """Setup the cloud relay tab (no port forwarding needed)"""
+        # Header info
+        header_frame = ttk.Frame(parent)
+        header_frame.pack(fill="x", padx=5, pady=5)
+        
+        title_label = ttk.Label(header_frame, text="🌐 CLOUD RELAY - NO PORT FORWARDING!", 
+                               font=("Arial", 12, "bold"))
+        title_label.pack()
+        
+        subtitle_label = ttk.Label(header_frame, text="Works anywhere in the world • No router setup • Just share codes!", 
+                                  font=("Arial", 9), foreground="green")
+        subtitle_label.pack(pady=(0, 10))
+        
+        # Host section
+        host_frame = ttk.LabelFrame(parent, text="🖥️ Share Your Screen", padding=10)
+        host_frame.pack(fill="x", padx=5, pady=5)
+        
+        ttk.Label(host_frame, text="Click below to generate a 6-digit session code.").pack(anchor="w")
+        ttk.Label(host_frame, text="Share this code with someone to let them view your screen.").pack(anchor="w", pady=(0, 10))
+        
+        # Host controls
+        host_controls = ttk.Frame(host_frame)
+        host_controls.pack(fill="x")
+        
+        self.relay_host_btn = ttk.Button(host_controls, text="🚀 Start Cloud Hosting", 
+                                        command=self.start_relay_host, style="Accent.TButton")
+        self.relay_host_btn.pack(side="left", padx=(0, 10))
+        
+        self.relay_stop_host_btn = ttk.Button(host_controls, text="⏹️ Stop Hosting", 
+                                             command=self.stop_relay_host, state="disabled")
+        self.relay_stop_host_btn.pack(side="left")
+        
+        # Session code display
+        self.relay_code_var = tk.StringVar()
+        self.relay_code_var.set("")
+        
+        code_frame = ttk.Frame(host_frame)
+        code_frame.pack(fill="x", pady=(10, 0))
+        
+        ttk.Label(code_frame, text="Session Code:").pack(side="left")
+        code_display = ttk.Label(code_frame, textvariable=self.relay_code_var, 
+                                font=("Courier", 14, "bold"), foreground="blue")
+        code_display.pack(side="left", padx=(10, 0))
+        
+        self.copy_relay_btn = ttk.Button(code_frame, text="📋 Copy Code", 
+                                        command=self.copy_relay_code, state="disabled")
+        self.copy_relay_btn.pack(side="right")
+        
+        # Client section
+        client_frame = ttk.LabelFrame(parent, text="👀 Connect to Someone", padding=10)
+        client_frame.pack(fill="x", padx=5, pady=5)
+        
+        ttk.Label(client_frame, text="Enter a 6-digit session code to connect:").pack(anchor="w")
+        
+        # Client controls
+        client_controls = ttk.Frame(client_frame)
+        client_controls.pack(fill="x", pady=(10, 0))
+        
+        ttk.Label(client_controls, text="Code:").pack(side="left")
+        
+        self.relay_code_entry = ttk.Entry(client_controls, font=("Courier", 12, "bold"), 
+                                         width=8, justify="center")
+        self.relay_code_entry.pack(side="left", padx=(5, 10))
+        self.relay_code_entry.bind('<Return>', lambda e: self.connect_relay_client())
+        
+        self.relay_connect_btn = ttk.Button(client_controls, text="🔗 Connect", 
+                                           command=self.connect_relay_client, style="Accent.TButton")
+        self.relay_connect_btn.pack(side="left", padx=(0, 10))
+        
+        self.relay_disconnect_btn = ttk.Button(client_controls, text="❌ Disconnect", 
+                                              command=self.disconnect_relay_client, state="disabled")
+        self.relay_disconnect_btn.pack(side="left")
+        
+        # Status and log
+        status_frame = ttk.LabelFrame(parent, text="Status & Log", padding=10)
+        status_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.relay_status_var = tk.StringVar()
+        self.relay_status_var.set("Ready to connect - Choose host or client mode above")
+        
+        status_label = ttk.Label(status_frame, textvariable=self.relay_status_var, 
+                                font=("Arial", 9), foreground="gray")
+        status_label.pack(anchor="w", pady=(0, 5))
+        
+        self.relay_log = scrolledtext.ScrolledText(status_frame, height=6, state="disabled")
+        self.relay_log.pack(fill="both", expand=True)
         
     def setup_tray(self):
         """Setup system tray functionality"""
@@ -791,6 +891,223 @@ Note: Public IP detection runs in background"""
             self.client_log.config(state="disabled")
             
         self.root.after(0, update_log)
+    
+    # ===============================
+    # RELAY SERVER METHODS (CLOUD)
+    # ===============================
+    
+    def setup_relay_callbacks(self):
+        """Setup relay client callbacks"""
+        self.relay_client.on_screen_data = self.handle_relay_screen_data
+        self.relay_client.on_input_data = self.handle_relay_input_data  
+        self.relay_client.on_connection_change = self.handle_relay_connection_change
+    
+    def start_relay_host(self):
+        """Start hosting via relay server"""
+        self.log_to_relay("🔄 Creating cloud session...")
+        self.relay_status_var.set("Creating session...")
+        self.relay_host_btn.config(state="disabled")
+        
+        def host_thread():
+            try:
+                self.setup_relay_callbacks()
+                
+                # Create session
+                session_id = self.relay_client.create_session()
+                if not session_id:
+                    self.log_to_relay("❌ Failed to create session")
+                    self.relay_status_var.set("Failed to create session")
+                    self.relay_host_btn.config(state="normal")
+                    return
+                
+                self.relay_session_id = session_id
+                self.relay_code_var.set(session_id)
+                self.copy_relay_btn.config(state="normal")
+                
+                # Connect as host
+                if self.relay_client.connect_as_host():
+                    self.relay_connected = True
+                    self.relay_mode = 'host'
+                    self.log_to_relay(f"✅ Hosting session: {session_id}")
+                    self.relay_status_var.set(f"Hosting session {session_id} - Share the code!")
+                    
+                    self.root.after(0, lambda: self.update_relay_host_ui(True))
+                    
+                    # Start screen sharing
+                    self.start_relay_screen_sharing()
+                else:
+                    self.log_to_relay("❌ Failed to connect as host")
+                    self.relay_status_var.set("Failed to connect as host")
+                    self.relay_host_btn.config(state="normal")
+                    
+            except Exception as e:
+                self.log_to_relay(f"❌ Host error: {e}")
+                self.relay_status_var.set(f"Error: {e}")
+                self.relay_host_btn.config(state="normal")
+                
+        threading.Thread(target=host_thread, daemon=True).start()
+    
+    def stop_relay_host(self):
+        """Stop relay hosting"""
+        self.relay_connected = False
+        self.relay_mode = None
+        
+        if self.relay_client:
+            self.relay_client.disconnect()
+            
+        self.log_to_relay("🛑 Stopped hosting")
+        self.relay_status_var.set("Stopped hosting")
+        self.update_relay_host_ui(False)
+    
+    def connect_relay_client(self):
+        """Connect as relay client"""
+        session_code = self.relay_code_entry.get().strip().upper()
+        if not session_code:
+            messagebox.showerror("Error", "Please enter session code")
+            return
+            
+        if len(session_code) != 6:
+            messagebox.showerror("Error", "Session code must be 6 characters")
+            return
+        
+        self.log_to_relay(f"🔄 Connecting to session: {session_code}")
+        self.relay_status_var.set(f"Connecting to {session_code}...")
+        self.relay_connect_btn.config(state="disabled")
+        
+        def connect_thread():
+            try:
+                self.setup_relay_callbacks()
+                
+                if self.relay_client.connect_as_client(session_code):
+                    self.relay_connected = True
+                    self.relay_mode = 'client'
+                    self.relay_session_id = session_code
+                    
+                    self.log_to_relay(f"✅ Connected to session: {session_code}")
+                    self.relay_status_var.set(f"Connected to {session_code} - Receiving screen...")
+                    
+                    self.root.after(0, lambda: self.update_relay_client_ui(True))
+                    
+                    # Open remote viewer for relay connection
+                    self.root.after(0, self.open_remote_viewer)
+                else:
+                    self.log_to_relay(f"❌ Failed to connect to {session_code}")
+                    self.relay_status_var.set("Connection failed")
+                    self.relay_connect_btn.config(state="normal")
+                    
+            except Exception as e:
+                self.log_to_relay(f"❌ Connection error: {e}")
+                self.relay_status_var.set(f"Error: {e}")
+                self.relay_connect_btn.config(state="normal")
+                
+        threading.Thread(target=connect_thread, daemon=True).start()
+    
+    def disconnect_relay_client(self):
+        """Disconnect relay client"""
+        self.relay_connected = False
+        self.relay_mode = None
+        
+        if self.relay_client:
+            self.relay_client.disconnect()
+            
+        self.log_to_relay("📴 Disconnected from session")
+        self.relay_status_var.set("Disconnected")
+        self.update_relay_client_ui(False)
+    
+    def start_relay_screen_sharing(self):
+        """Start sharing screen via relay"""
+        def share_loop():
+            while self.relay_connected and self.relay_mode == 'host':
+                try:
+                    # Capture screen
+                    screen_data = self.screen_capture.capture_optimized()
+                    
+                    if screen_data and self.relay_client.send_screen_data(screen_data):
+                        # Screen sent successfully
+                        pass
+                    else:
+                        self.log_to_relay("❌ Failed to send screen data")
+                        break
+                        
+                    time.sleep(1/30)  # 30 FPS
+                    
+                except Exception as e:
+                    self.log_to_relay(f"❌ Screen sharing error: {e}")
+                    break
+                    
+        threading.Thread(target=share_loop, daemon=True).start()
+    
+    def handle_relay_screen_data(self, data):
+        """Handle received screen data from relay"""
+        try:
+            # Decode base64 data
+            screen_bytes = base64.b64decode(data)
+            
+            # Update remote viewer if it exists
+            if hasattr(self, 'remote_viewer') and self.remote_viewer:
+                self.remote_viewer.update_display(screen_bytes)
+                
+        except Exception as e:
+            self.log_to_relay(f"❌ Error handling screen data: {e}")
+    
+    def handle_relay_input_data(self, data):
+        """Handle received input data from relay"""
+        try:
+            if self.relay_mode == 'host':
+                # Process input on host side
+                self.input_handler.process_input(data)
+        except Exception as e:
+            self.log_to_relay(f"❌ Error handling input: {e}")
+    
+    def handle_relay_connection_change(self, status):
+        """Handle relay connection status changes"""
+        self.log_to_relay(f"🔄 Connection status: {status}")
+        
+        if status == 'client_connected':
+            self.root.after(0, lambda: self.relay_status_var.set("🎉 Client connected! Screen sharing active."))
+        elif status == 'host_available':
+            self.root.after(0, lambda: self.relay_status_var.set("🎉 Host available! Receiving screen data..."))
+        elif status in ['host_disconnected', 'client_disconnected']:
+            self.root.after(0, lambda: self.relay_status_var.set("📴 Other party disconnected"))
+    
+    def update_relay_host_ui(self, is_hosting):
+        """Update relay host UI state"""
+        if is_hosting:
+            self.relay_host_btn.config(state="disabled")
+            self.relay_stop_host_btn.config(state="normal")
+        else:
+            self.relay_host_btn.config(state="normal") 
+            self.relay_stop_host_btn.config(state="disabled")
+            self.copy_relay_btn.config(state="disabled")
+            self.relay_code_var.set("")
+    
+    def update_relay_client_ui(self, is_connected):
+        """Update relay client UI state"""
+        if is_connected:
+            self.relay_connect_btn.config(state="disabled")
+            self.relay_disconnect_btn.config(state="normal")
+            self.relay_code_entry.config(state="disabled")
+        else:
+            self.relay_connect_btn.config(state="normal")
+            self.relay_disconnect_btn.config(state="disabled") 
+            self.relay_code_entry.config(state="normal")
+    
+    def copy_relay_code(self):
+        """Copy relay session code to clipboard"""
+        if self.relay_session_id:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(self.relay_session_id)
+            self.log_to_relay("📋 Session code copied to clipboard")
+    
+    def log_to_relay(self, message):
+        """Add message to relay log"""
+        timestamp = time.strftime("%H:%M:%S")
+        log_message = f"[{timestamp}] {message}\n"
+        
+        self.relay_log.config(state="normal")
+        self.relay_log.insert(tk.END, log_message)
+        self.relay_log.see(tk.END)
+        self.relay_log.config(state="disabled")
         
     def on_closing(self):
         """Handle application closing"""
@@ -806,6 +1123,10 @@ Note: Public IP detection runs in background"""
         # Disconnect client if connected
         if self.is_client_connected:
             self.disconnect_from_server()
+            
+        # Disconnect relay if connected
+        if self.relay_connected:
+            self.relay_client.disconnect()
             
         # Stop tray icon
         if self.tray_icon:
