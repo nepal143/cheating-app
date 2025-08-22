@@ -1017,7 +1017,7 @@ Note: Public IP detection runs in background"""
     def start_relay_screen_sharing(self):
         """Start sharing screen via relay"""
         def share_loop():
-            frame_time = 1/15  # 15 FPS for better performance (was 30 FPS)
+            frame_time = 1/25  # 25 FPS for better performance and smoothness
             last_capture_time = 0
             
             while self.relay_connected and self.relay_mode == 'host':
@@ -1037,15 +1037,15 @@ Note: Public IP detection runs in background"""
                                 self.log_to_relay("❌ Failed to send screen data")
                                 # Don't break immediately, try again
                         
-                        # Small sleep to prevent CPU overload
-                        time.sleep(0.01)  # 10ms
-                    else:
-                        # Sleep until next frame is due
+                        # Reduced sleep to prevent CPU overload but maintain speed
                         time.sleep(0.005)  # 5ms
+                    else:
+                        # Much smaller sleep for better responsiveness
+                        time.sleep(0.001)  # 1ms
                     
                 except Exception as e:
                     self.log_to_relay(f"❌ Screen sharing error: {e}")
-                    time.sleep(0.1)  # Brief pause on error
+                    time.sleep(0.05)  # Shorter pause on error
                     continue  # Don't break, try to recover
                     
         threading.Thread(target=share_loop, daemon=True).start()
@@ -1079,8 +1079,6 @@ Note: Public IP detection runs in background"""
         """Handle received input data from relay"""
         try:
             if self.relay_mode == 'host':
-                # Log input for debugging
-                self.log_to_relay(f"🎮 Received input: {data.get('type', 'unknown')} - {data}")
                 # Process input on host side using the correct method
                 self.input_handler.handle_remote_input(data)
         except Exception as e:

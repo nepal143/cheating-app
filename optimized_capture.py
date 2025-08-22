@@ -12,14 +12,14 @@ import json
 
 class OptimizedScreenCapture:
     def __init__(self):
-        # Better quality settings while keeping data reasonable
-        self.target_width = 960    # Higher resolution (720p-like)
-        self.target_height = 720   # Much better quality
-        self.jpeg_quality = 60     # Higher quality (was 40)
-        self.max_fps = 60          # Keep high FPS for smooth mouse
-        self.min_frame_interval = 1.0 / self.max_fps  # 60 FPS
+        # Optimized settings for speed and quality balance
+        self.target_width = 1280   # Higher resolution for better quality
+        self.target_height = 800   # 16:10 aspect ratio
+        self.jpeg_quality = 75     # Higher quality for less artifacts
+        self.max_fps = 30          # Optimized FPS for good performance
+        self.min_frame_interval = 1.0 / self.max_fps  # 30 FPS
         self.last_capture_time = 0
-        self.max_data_size = 200000  # 200KB max per frame (reasonable for better quality)
+        self.max_data_size = 300000  # 300KB max per frame for better quality
         
     def capture_screen(self):
         """Capture screen with guaranteed small data size"""
@@ -33,8 +33,8 @@ class OptimizedScreenCapture:
             # Capture full screen
             screenshot = ImageGrab.grab()
             
-            # Aggressively resize to fixed dimensions with high-quality scaling
-            screenshot = screenshot.resize((self.target_width, self.target_height), Image.Resampling.LANCZOS)
+            # Resize with faster algorithm for better performance
+            screenshot = screenshot.resize((self.target_width, self.target_height), Image.Resampling.BILINEAR)  # BILINEAR is faster than LANCZOS
             
             # Ensure RGB mode
             if screenshot.mode != 'RGB':
@@ -70,6 +70,7 @@ class OptimizedRemoteViewer:
         self.viewer_window = None
         self.canvas = None
         self.current_image = None
+        self.canvas_image_id = None  # Add this to track canvas image
         
     def create_viewer_window(self):
         """Create the remote desktop viewer window"""
@@ -122,15 +123,19 @@ class OptimizedRemoteViewer:
             if canvas_height <= 1:
                 canvas_height = 900
                 
-            # Resize image to fit canvas
-            image = image.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
+            # Resize image to fit canvas with faster resampling
+            image = image.resize((canvas_width, canvas_height), Image.Resampling.NEAREST)  # NEAREST is faster than LANCZOS
             
             # Convert to PhotoImage
             photo = ImageTk.PhotoImage(image)
             
-            # Clear canvas and display new image
-            self.canvas.delete("all")
-            self.canvas.create_image(0, 0, anchor=tk.NW, image=photo)
+            # Update image without clearing canvas to prevent blinking
+            if hasattr(self, 'canvas_image_id') and self.canvas_image_id:
+                # Update existing image
+                self.canvas.itemconfig(self.canvas_image_id, image=photo)
+            else:
+                # Create new image for first time
+                self.canvas_image_id = self.canvas.create_image(0, 0, anchor=tk.NW, image=photo)
             
             # Keep reference to prevent garbage collection
             self.current_image = photo
@@ -221,9 +226,6 @@ class OptimizedRemoteViewer:
             'y': scaled_y
         }
         
-        # Debug logging
-        print(f"Sending mouse event: {input_data}")
-        
         # Send via relay or direct connection
         if hasattr(self.app, 'relay_connected') and self.app.relay_connected and self.app.relay_mode == 'client':
             self.app.relay_client.send_input_data(input_data)
@@ -262,9 +264,6 @@ class OptimizedRemoteViewer:
             'type': 'key_press',
             'key': key
         }
-        
-        # Debug logging
-        print(f"Sending key event: {input_data}")
         
         # Send via relay or direct connection
         if hasattr(self.app, 'relay_connected') and self.app.relay_connected and self.app.relay_mode == 'client':
