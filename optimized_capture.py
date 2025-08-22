@@ -170,59 +170,69 @@ class OptimizedRemoteViewer:
         
     def _send_mouse_event(self, button, x, y):
         """Send mouse event to remote"""
-        if hasattr(self.app, 'client') and self.app.client:
-            # Scale coordinates from canvas to actual screen
-            canvas_width = self.canvas.winfo_width()
-            canvas_height = self.canvas.winfo_height()
-            
-            # Get actual screen size from last frame
-            actual_width = 1920  # Default, will be updated by screen data
-            actual_height = 1080
-            
-            # Scale coordinates
-            scaled_x = int(x * actual_width / canvas_width)
-            scaled_y = int(y * actual_height / canvas_height)
-            
-            input_data = {
-                'type': 'mouse_click',
-                'button': button,
-                'x': scaled_x,
-                'y': scaled_y
-            }
-            
-            # Send immediately for fast response
-            threading.Thread(target=self.app.client.send_input, args=(input_data,), daemon=True).start()
+        # Scale coordinates from canvas to actual screen
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        # Get actual screen size (default to common resolution)
+        actual_width = 1920
+        actual_height = 1080
+        
+        # Scale coordinates
+        scaled_x = int((x / canvas_width) * actual_width)
+        scaled_y = int((y / canvas_height) * actual_height)
+        
+        input_data = {
+            'type': 'mouse_click',
+            'button': button,
+            'x': scaled_x,
+            'y': scaled_y
+        }
+        
+        # Send via relay or direct connection
+        if hasattr(self.app, 'relay_connected') and self.app.relay_connected and self.app.relay_mode == 'client':
+            self.app.relay_client.send_input_data(input_data)
+        elif hasattr(self.app, 'client') and self.app.client:
+            self.app.client.send_input_data(json.dumps(input_data))
             
     def _send_mouse_move(self, x, y):
         """Send mouse movement to remote"""
-        if hasattr(self.app, 'client') and self.app.client:
-            canvas_width = self.canvas.winfo_width()
-            canvas_height = self.canvas.winfo_height()
-            
-            actual_width = 1920
-            actual_height = 1080
-            
-            scaled_x = int(x * actual_width / canvas_width)
-            scaled_y = int(y * actual_height / canvas_height)
-            
-            input_data = {
-                'type': 'mouse_move',
-                'x': scaled_x,
-                'y': scaled_y
-            }
-            
-            # Send immediately for fast response
-            threading.Thread(target=self.app.client.send_input, args=(input_data,), daemon=True).start()
+        # Scale coordinates from canvas to actual screen
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        # Get actual screen size
+        actual_width = 1920
+        actual_height = 1080
+        
+        # Scale coordinates  
+        scaled_x = int((x / canvas_width) * actual_width)
+        scaled_y = int((y / canvas_height) * actual_height)
+        
+        input_data = {
+            'type': 'mouse_move',
+            'x': scaled_x,
+            'y': scaled_y
+        }
+        
+        # Send via relay or direct connection
+        if hasattr(self.app, 'relay_connected') and self.app.relay_connected and self.app.relay_mode == 'client':
+            self.app.relay_client.send_input_data(input_data)
+        elif hasattr(self.app, 'client') and self.app.client:
+            self.app.client.send_input_data(json.dumps(input_data))
             
     def _send_key_event(self, key):
-        """Send key event to remote"""
-        if hasattr(self.app, 'client') and self.app.client:
-            input_data = {
-                'type': 'key_press',
-                'key': key
-            }
-            
-            threading.Thread(target=self.app.client.send_input, args=(input_data,), daemon=True).start()
+        """Send keyboard event to remote"""
+        input_data = {
+            'type': 'key_press',
+            'key': key
+        }
+        
+        # Send via relay or direct connection
+        if hasattr(self.app, 'relay_connected') and self.app.relay_connected and self.app.relay_mode == 'client':
+            self.app.relay_client.send_input_data(input_data)
+        elif hasattr(self.app, 'client') and self.app.client:
+            self.app.client.send_input_data(json.dumps(input_data))
 
 class OptimizedInputHandler:
     def __init__(self):

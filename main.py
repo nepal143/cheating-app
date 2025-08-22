@@ -1019,16 +1019,18 @@ Note: Public IP detection runs in background"""
         def share_loop():
             while self.relay_connected and self.relay_mode == 'host':
                 try:
-                    # Capture screen
-                    screen_data = self.screen_capture.capture_optimized()
+                    # Capture screen using optimized capture
+                    screen_info = self.screen_capture.capture_screen()
                     
-                    if screen_data and self.relay_client.send_screen_data(screen_data):
-                        # Screen sent successfully
-                        pass
-                    else:
-                        self.log_to_relay("❌ Failed to send screen data")
-                        break
-                        
+                    if screen_info and 'data' in screen_info:
+                        # Send the JPEG data directly (it will be base64 encoded by relay_client)
+                        if self.relay_client.send_screen_data(screen_info['data']):
+                            # Screen sent successfully
+                            pass
+                        else:
+                            self.log_to_relay("❌ Failed to send screen data")
+                            break
+                    
                     time.sleep(1/30)  # 30 FPS
                     
                 except Exception as e:
@@ -1040,12 +1042,24 @@ Note: Public IP detection runs in background"""
     def handle_relay_screen_data(self, data):
         """Handle received screen data from relay"""
         try:
-            # Decode base64 data
-            screen_bytes = base64.b64decode(data)
+            # Decode base64 data to get JPEG bytes
+            jpeg_bytes = base64.b64decode(data)
+            
+            # Create screen info dict like the original capture format
+            screen_info = {
+                'type': 'screen',
+                'data': jpeg_bytes,
+                'timestamp': time.time()
+            }
             
             # Update remote viewer if it exists
             if hasattr(self, 'remote_viewer') and self.remote_viewer:
-                self.remote_viewer.update_display(screen_bytes)
+                self.remote_viewer.update_display(screen_info)
+            else:
+                # Create remote viewer if it doesn't exist
+                self.open_remote_viewer()
+                if hasattr(self, 'remote_viewer') and self.remote_viewer:
+                    self.remote_viewer.update_display(screen_info)
                 
         except Exception as e:
             self.log_to_relay(f"❌ Error handling screen data: {e}")
