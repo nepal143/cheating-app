@@ -25,6 +25,13 @@ class IgniteRemotePro:
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
         
+        # Initialize relay client and state
+        self.relay_client = None
+        self.relay_connected = False
+        self.relay_mode = None
+        self.relay_session_id = None
+        self.viewer_window = None
+        
         # VS Code inspired color scheme
         self.colors = {
             'bg_primary': '#1e1e1e',       # VS Code dark background
@@ -51,6 +58,9 @@ class IgniteRemotePro:
         self.relay_mode = None
         self.relay_session_id = None
         
+        # Set up relay callbacks immediately
+        self.setup_relay_callbacks()
+        
         # Initialize UI variables that might be accessed from any tab
         self.session_code_var = tk.StringVar()
         self.session_code_var.set("Not Active")
@@ -60,6 +70,12 @@ class IgniteRemotePro:
         self.client_status_var.set("Not connected")
         
         self.setup_ui()
+        
+    def setup_relay_callbacks(self):
+        """Setup relay client callbacks"""
+        self.relay_client.on_screen_data = self.handle_relay_screen_data
+        self.relay_client.on_input_data = self.handle_relay_input_data  
+        self.relay_client.on_connection_change = self.handle_relay_connection_change
         
     def setup_ui(self):
         """Setup VS Code style UI"""
@@ -627,9 +643,6 @@ class IgniteRemotePro:
                         self.relay_mode = 'client'
                         self.relay_session_id = session_code
                         
-                        # Set up callbacks to receive screen data
-                        self.relay_client.on_screen_data = self.on_screen_data_received
-                        
                         self.root.after(0, lambda: self.log_activity("Client connected successfully", "success"))
                         self.root.after(0, lambda: self.client_disconnect_btn.config(state="normal", bg=self.colors['accent_red'], fg='white'))
                         self.root.after(0, lambda: self.code_entry.config(state="disabled"))
@@ -637,8 +650,7 @@ class IgniteRemotePro:
                         self.root.after(0, lambda: self.status_var.set(f"Connected to: {session_code}"))
                         self.root.after(0, lambda: self.client_status_var.set(f"Connected to {session_code}"))
                         
-                        # Start screen display window
-                        self.root.after(0, lambda: self.start_screen_display())
+                        # Note: Remote viewer will be opened automatically when first screen data is received
                         
                     else:
                         self.root.after(0, lambda: self.log_activity("Failed to connect as client", "error"))
@@ -689,22 +701,62 @@ class IgniteRemotePro:
         except Exception as e:
             self.log_activity(f"❌ Failed to open remote desktop: {str(e)}", "error")
     
-    def on_screen_data_received(self, data):
-        """Callback when screen data is received from server"""
+    def handle_relay_screen_data(self, data):
+        """Handle received screen data from relay - PROPER IMPLEMENTATION"""
         try:
-            # Forward the screen data to the remote viewer if it exists
-            if self.remote_viewer:
-                # The data received is base64 encoded, need to create proper format
-                import base64
-                jpeg_data = base64.b64decode(data)
-                screen_data = {'data': jpeg_data}
-                self.remote_viewer.update_display(screen_data)
+            import base64
+            # Decode the base64 data to get JPEG bytes
+            jpeg_bytes = base64.b64decode(data)
+            
+            # Create screen info dict like the original capture format
+            screen_info = {
+                'type': 'screen',
+                'data': jpeg_bytes,
+                'timestamp': time.time()
+            }
+            
+            # Update remote viewer if it exists
+            if hasattr(self, 'remote_viewer') and self.remote_viewer:
+                self.remote_viewer.update_display(screen_info)
             else:
-                # Log that we're receiving data but viewer isn't ready
-                print(f"📺 Received screen data: {len(data)} bytes (viewer not ready)")
+                # Create remote viewer if it doesn't exist
+                self.open_remote_viewer()
+                if hasattr(self, 'remote_viewer') and self.remote_viewer:
+                    self.remote_viewer.update_display(screen_info)
                 
         except Exception as e:
-            self.log_activity(f"❌ Error displaying screen data: {str(e)}", "error")
+            self.log_activity(f"❌ Error handling screen data: {e}", "error")
+    
+    def handle_relay_input_data(self, data):
+        """Handle received input data from relay"""
+        try:
+            if self.relay_mode == 'host':
+                # Process input on host side
+                if hasattr(self, 'input_handler') and self.input_handler:
+                    self.input_handler.handle_remote_input(data)
+        except Exception as e:
+            self.log_activity(f"❌ Error handling input: {e}", "error")
+    
+    def handle_relay_connection_change(self, status):
+        """Handle relay connection status changes"""
+        self.log_activity(f"🔄 Connection status: {status}", "info")
+        
+        if status == 'client_connected':
+            self.root.after(0, lambda: self.host_status_var.set("🎉 Client connected! Screen sharing active."))
+        elif status == 'host_available':
+            self.root.after(0, lambda: self.client_status_var.set("🎉 Host available! Receiving screen data..."))
+        elif status in ['host_disconnected', 'client_disconnected']:
+            self.root.after(0, lambda: self.log_activity("📴 Other party disconnected", "warning"))
+    
+    def open_remote_viewer(self):
+        """Open the remote desktop viewer window"""
+        try:
+            if not hasattr(self, 'remote_viewer') or not self.remote_viewer:
+                self.remote_viewer = OptimizedRemoteViewer(self)
+                self.remote_viewer.create_viewer_window()
+                self.log_activity("🖥️ Remote desktop window opened", "success")
+        except Exception as e:
+            self.log_activity(f"❌ Failed to open remote viewer: {e}", "error")
     
     def copy_session_code(self):
         """Copy session code to clipboard"""
