@@ -223,8 +223,6 @@ settings.cfg
 *.zip
 
 # Application specific
-remote_desktop.exe
-*.exe
 *.msi
 build/
 dist/
