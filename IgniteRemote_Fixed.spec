@@ -9,6 +9,7 @@ a = Analysis(
     datas=[],
     hiddenimports=[
         'relay_client',
+        'optimized_capture',
         'websocket',
         'websocket._core',
         'websocket._handshake',

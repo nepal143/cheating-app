@@ -627,6 +627,9 @@ class IgniteRemotePro:
                         self.relay_mode = 'client'
                         self.relay_session_id = session_code
                         
+                        # Set up callbacks to receive screen data
+                        self.relay_client.on_screen_data = self.on_screen_data_received
+                        
                         self.root.after(0, lambda: self.log_activity("Client connected successfully", "success"))
                         self.root.after(0, lambda: self.client_disconnect_btn.config(state="normal", bg=self.colors['accent_red'], fg='white'))
                         self.root.after(0, lambda: self.code_entry.config(state="disabled"))
@@ -677,16 +680,31 @@ class IgniteRemotePro:
         try:
             self.log_activity("🖥️ Opening remote desktop window...", "info")
             
-            # Create remote viewer
-            self.remote_viewer = OptimizedRemoteViewer(self.relay_client)
-            self.input_handler = OptimizedInputHandler(self.relay_client)
+            # Create remote viewer - pass self as the app reference
+            self.remote_viewer = OptimizedRemoteViewer(self)
+            self.remote_viewer.create_viewer_window()
             
-            # Start the remote viewer in a new window
-            self.remote_viewer.start_viewer()
             self.log_activity("🎮 Remote desktop window opened - you can now control the remote screen", "success")
             
         except Exception as e:
             self.log_activity(f"❌ Failed to open remote desktop: {str(e)}", "error")
+    
+    def on_screen_data_received(self, data):
+        """Callback when screen data is received from server"""
+        try:
+            # Forward the screen data to the remote viewer if it exists
+            if self.remote_viewer:
+                # The data received is base64 encoded, need to create proper format
+                import base64
+                jpeg_data = base64.b64decode(data)
+                screen_data = {'data': jpeg_data}
+                self.remote_viewer.update_display(screen_data)
+            else:
+                # Log that we're receiving data but viewer isn't ready
+                print(f"📺 Received screen data: {len(data)} bytes (viewer not ready)")
+                
+        except Exception as e:
+            self.log_activity(f"❌ Error displaying screen data: {str(e)}", "error")
     
     def copy_session_code(self):
         """Copy session code to clipboard"""
