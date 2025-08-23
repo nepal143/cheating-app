@@ -448,12 +448,11 @@ class IgniteRemotePro:
                     screen_data = self.screen_capture.capture_screen()
                     
                     if screen_data and 'data' in screen_data:
-                        # Convert to base64 for relay
+                        # Send raw JPEG bytes to relay (it will handle base64 conversion)
                         jpeg_bytes = screen_data['data']
-                        base64_data = base64.b64encode(jpeg_bytes).decode('utf-8')
                         
-                        # Send via relay
-                        self.relay_client.send_screen_data(base64_data)
+                        # Send via relay - relay_client expects bytes, not string
+                        self.relay_client.send_screen_data(jpeg_bytes)
                         
                     time.sleep(1/30)  # 30 FPS
                 except Exception as e:
