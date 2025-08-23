@@ -25,13 +25,6 @@ class IgniteRemotePro:
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
         
-        # Initialize relay client and state
-        self.relay_client = None
-        self.relay_connected = False
-        self.relay_mode = None
-        self.relay_session_id = None
-        self.viewer_window = None
-        
         # VS Code inspired color scheme
         self.colors = {
             'bg_primary': '#1e1e1e',       # VS Code dark background
@@ -57,6 +50,7 @@ class IgniteRemotePro:
         self.relay_connected = False
         self.relay_mode = None
         self.relay_session_id = None
+        self.viewer_window = None
         
         # Set up relay callbacks immediately
         self.setup_relay_callbacks()
