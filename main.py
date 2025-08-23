@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Import our modules
 from relay_client import RelayClient
-# from optimized_capture import OptimizedCapture
+from screen_capture import ScreenCapture
 
 class IgniteRemotePro:
     def __init__(self):
@@ -44,6 +44,7 @@ class IgniteRemotePro:
         
         # Initialize variables first (before UI setup)
         self.relay_client = RelayClient()
+        self.screen_capture = ScreenCapture()
         self.relay_connected = False
         self.relay_mode = None
         self.relay_session_id = None
@@ -513,6 +514,10 @@ class IgniteRemotePro:
                         self.root.after(0, lambda: self.log_activity("Host connected successfully", "success"))
                         self.root.after(0, lambda: self.log_activity("Ready to accept connections", "info"))
                         
+                        # Start screen sharing thread
+                        self.root.after(0, lambda: self.log_activity("Starting screen capture...", "info"))
+                        self.start_screen_sharing()
+                        
                     else:
                         self.root.after(0, lambda: self.log_activity("Failed to connect as host", "error"))
                         self.root.after(0, lambda: self.reset_host_ui())
@@ -531,6 +536,31 @@ class IgniteRemotePro:
                 self.root.after(0, lambda: self.reset_host_ui())
                 
         threading.Thread(target=host_thread, daemon=True).start()
+        
+    def start_screen_sharing(self):
+        """Start the screen sharing loop for hosting"""
+        def screen_sharing_loop():
+            while self.relay_connected and self.relay_mode == 'host':
+                try:
+                    # Capture screen
+                    screen_data = self.screen_capture.capture_screen()
+                    if screen_data:
+                        # Send screen data via relay
+                        if not self.relay_client.send_screen_data(screen_data):
+                            self.root.after(0, lambda: self.log_activity("Failed to send screen data", "warning"))
+                            break
+                    
+                    # Limit FPS to ~30 for good performance
+                    time.sleep(1/30)
+                    
+                except Exception as e:
+                    self.root.after(0, lambda: self.log_activity(f"Screen sharing error: {str(e)}", "error"))
+                    break
+                    
+            self.root.after(0, lambda: self.log_activity("Screen sharing stopped", "info"))
+            
+        # Start screen sharing in separate thread
+        threading.Thread(target=screen_sharing_loop, daemon=True).start()
     
     def stop_hosting(self):
         """Stop hosting"""
@@ -566,14 +596,42 @@ class IgniteRemotePro:
         self.status_var.set("Connecting...")
         self.client_status_var.set("Connecting...")
         
-        # Implementation for connecting would go here
-        # For now, just show success
-        self.root.after(1000, lambda: self.log_activity("Connected successfully", "success"))
-        self.root.after(1000, lambda: self.client_disconnect_btn.config(state="normal", bg=self.colors['accent_red'], fg='white'))
-        self.root.after(1000, lambda: self.code_entry.config(state="disabled"))
-        self.root.after(1000, lambda: self.title_status_var.set("●  Connected"))
-        self.root.after(1000, lambda: self.status_var.set(f"Connected to: {session_code}"))
-        self.root.after(1000, lambda: self.client_status_var.set(f"Connected to {session_code}"))
+        def client_thread():
+            try:
+                # Connect as client to session
+                self.root.after(0, lambda: self.log_activity(f"Joining session: {session_code}...", "info"))
+                
+                if self.relay_client.join_session(session_code):
+                    self.root.after(0, lambda: self.log_activity("Connected to session", "success"))
+                    
+                    # Connect as client
+                    if self.relay_client.connect_as_client():
+                        self.relay_connected = True
+                        self.relay_mode = 'client'
+                        self.relay_session_id = session_code
+                        
+                        self.root.after(0, lambda: self.log_activity("Client connected successfully", "success"))
+                        self.root.after(0, lambda: self.client_disconnect_btn.config(state="normal", bg=self.colors['accent_red'], fg='white'))
+                        self.root.after(0, lambda: self.code_entry.config(state="disabled"))
+                        self.root.after(0, lambda: self.title_status_var.set("●  Connected"))
+                        self.root.after(0, lambda: self.status_var.set(f"Connected to: {session_code}"))
+                        self.root.after(0, lambda: self.client_status_var.set(f"Connected to {session_code}"))
+                        
+                        # Start screen display window
+                        self.root.after(0, lambda: self.start_screen_display())
+                        
+                    else:
+                        self.root.after(0, lambda: self.log_activity("Failed to connect as client", "error"))
+                        self.root.after(0, lambda: self.reset_client_ui())
+                else:
+                    self.root.after(0, lambda: self.log_activity("Failed to join session - check session code", "error"))
+                    self.root.after(0, lambda: self.reset_client_ui())
+                    
+            except Exception as e:
+                self.root.after(0, lambda: self.log_activity(f"Connection error: {str(e)}", "error"))
+                self.root.after(0, lambda: self.reset_client_ui())
+        
+        threading.Thread(target=client_thread, daemon=True).start()
     
     def disconnect_from_session(self):
         """Disconnect from session"""

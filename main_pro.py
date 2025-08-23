@@ -255,7 +255,7 @@ class IgniteRemotePro:
         header.pack(fill="x", pady=(0, 30))
         
         tk.Label(header, text="Share Your Desktop", 
-                font=("Segoe UI", 24, "300"), 
+                font=("Segoe UI", 24, "normal"), 
                 bg=self.colors['bg_primary'], fg=self.colors['text_primary']).pack(side="left")
         
         # Description
@@ -343,7 +343,7 @@ class IgniteRemotePro:
         header.pack(fill="x", pady=(0, 30))
         
         tk.Label(header, text="Connect to Remote Desktop", 
-                font=("Segoe UI", 24, "300"), 
+                font=("Segoe UI", 24, "normal"), 
                 bg=self.colors['bg_primary'], fg=self.colors['text_primary']).pack(side="left")
         
         # Description
@@ -435,7 +435,7 @@ class IgniteRemotePro:
         main_container.pack(fill="both", expand=True, padx=30, pady=30)
         
         tk.Label(main_container, text="Settings", 
-                font=("Segoe UI", 24, "300"), 
+                font=("Segoe UI", 24, "normal"), 
                 bg=self.colors['bg_primary'], fg=self.colors['text_primary']).pack(anchor="w", pady=(0, 30))
         
         tk.Label(main_container, text="Settings panel - coming soon", 
