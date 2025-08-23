@@ -32,6 +32,7 @@ class OptimizedScreenCapture:
             
             # Capture full screen
             screenshot = ImageGrab.grab()
+            original_width, original_height = screenshot.size  # Store original resolution
             
             # Resize with faster algorithm for better performance
             screenshot = screenshot.resize((self.target_width, self.target_height), Image.Resampling.BILINEAR)  # BILINEAR is faster than LANCZOS
@@ -52,6 +53,8 @@ class OptimizedScreenCapture:
                         'type': 'screen',
                         'width': self.target_width,
                         'height': self.target_height,
+                        'original_width': original_width,
+                        'original_height': original_height,
                         'data': jpeg_data,  # Raw JPEG bytes
                         'timestamp': current_time
                     }
@@ -71,6 +74,8 @@ class OptimizedRemoteViewer:
         self.canvas = None
         self.current_image = None
         self.canvas_image_id = None  # Add this to track canvas image
+        self.host_screen_width = 1920  # Default resolution
+        self.host_screen_height = 1080
         
     def create_viewer_window(self):
         """Create the remote desktop viewer window"""
@@ -106,6 +111,11 @@ class OptimizedRemoteViewer:
         try:
             if not self.viewer_window or not self.canvas:
                 return
+            
+            # Store original host screen resolution for input scaling
+            if 'original_width' in screen_data and 'original_height' in screen_data:
+                self.host_screen_width = screen_data['original_width']
+                self.host_screen_height = screen_data['original_height']
             
             # Get raw JPEG data
             jpeg_data = screen_data['data']
@@ -211,9 +221,9 @@ class OptimizedRemoteViewer:
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
         
-        # Get actual screen size (default to common resolution)
-        actual_width = 1920
-        actual_height = 1080
+        # Use actual host screen resolution
+        actual_width = self.host_screen_width
+        actual_height = self.host_screen_height
         
         # Scale coordinates
         scaled_x = int((x / canvas_width) * actual_width)
@@ -238,9 +248,9 @@ class OptimizedRemoteViewer:
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
         
-        # Get actual screen size
-        actual_width = 1920
-        actual_height = 1080
+        # Use actual host screen resolution
+        actual_width = self.host_screen_width
+        actual_height = self.host_screen_height
         
         # Scale coordinates  
         scaled_x = int((x / canvas_width) * actual_width)

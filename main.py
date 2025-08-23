@@ -393,6 +393,9 @@ class IgniteRemotePro:
                     self.relay_connected = True
                     self.relay_mode = 'host'
                     
+                    # Initialize input handler for receiving client input
+                    self.input_handler = OptimizedInputHandler()
+                    
                     self.log_to_host(f"✅ Session created: {session_id}")
                     self.host_status_var.set(f"Hosting session: {session_id}")
                     
@@ -608,7 +611,7 @@ class IgniteRemotePro:
         """Handle received input data from relay"""
         try:
             if hasattr(self, 'input_handler') and self.input_handler:
-                self.input_handler.handle_input(data)
+                self.input_handler.handle_remote_input(data)
         except Exception as e:
             self.log_to_host(f"❌ Input error: {e}")
             
