@@ -38,7 +38,15 @@ a = Analysis(
         'time',
         'sys',
         'os',
-        'io'
+        'io',
+        'ctypes',
+        'ctypes.wintypes',
+        'win32api',
+        'win32con',
+        'win32gui',
+        'win32process',
+        'pystray',
+        'keyboard'
     ],
     hookspath=[],
     hooksconfig={},
