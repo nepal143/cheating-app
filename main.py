@@ -2,6 +2,7 @@
 """
 IgniteRemote Professional - VS Code Style UI
 Clean, minimalistic, professional remote desktop solution
+Based on working version with modern UI
 """
 
 import tkinter as tk
@@ -11,6 +12,7 @@ import json
 import time
 import sys
 import os
+import base64
 import requests
 from datetime import datetime
 
@@ -52,10 +54,7 @@ class IgniteRemotePro:
         self.relay_session_id = None
         self.viewer_window = None
         
-        # Set up relay callbacks immediately
-        self.setup_relay_callbacks()
-        
-        # Initialize UI variables that might be accessed from any tab
+        # Initialize UI variables
         self.session_code_var = tk.StringVar()
         self.session_code_var.set("Not Active")
         self.host_status_var = tk.StringVar()
@@ -65,530 +64,355 @@ class IgniteRemotePro:
         
         self.setup_ui()
         
-    def setup_relay_callbacks(self):
-        """Setup relay client callbacks"""
-        self.relay_client.on_screen_data = self.handle_relay_screen_data
-        self.relay_client.on_input_data = self.handle_relay_input_data  
-        self.relay_client.on_connection_change = self.handle_relay_connection_change
-        
     def setup_ui(self):
-        """Setup VS Code style UI"""
+        """Setup the VS Code style UI"""
         self.root.configure(bg=self.colors['bg_primary'])
         
-        # Configure ttk styles for VS Code look
+        # Configure styles
         self.setup_styles()
         
-        # Main container
-        main_container = tk.Frame(self.root, bg=self.colors['bg_primary'])
-        main_container.pack(fill="both", expand=True)
+        # Create main layout
+        self.create_layout()
         
-        # Title bar (VS Code style)
-        self.create_title_bar(main_container)
-        
-        # Activity bar (left sidebar - VS Code style)
-        self.create_activity_bar(main_container)
-        
-        # Main content area
-        content_area = tk.Frame(main_container, bg=self.colors['bg_primary'])
-        content_area.pack(side="left", fill="both", expand=True)
-        
-        # Tab bar
-        self.create_tab_bar(content_area)
-        
-        # Content panels
-        self.content_frame = tk.Frame(content_area, bg=self.colors['bg_primary'])
-        self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
-        
-        # Status bar at bottom
-        self.create_status_bar(main_container)
-        
-        # Initialize with host tab
-        self.current_tab = "host"
-        self.show_host_panel()
+        # Apply VS Code style
+        self.apply_vs_code_style()
         
     def setup_styles(self):
-        """Setup VS Code inspired ttk styles"""
+        """Setup ttk styles for VS Code theme"""
         style = ttk.Style()
         
-        # Configure notebook (tabs)
+        # Configure main styles
+        style.theme_use('clam')
+        
+        # Configure Notebook (tabs)
         style.configure('VSCode.TNotebook', 
                        background=self.colors['bg_primary'],
                        borderwidth=0,
-                       tabmargins=0)
+                       tabmargins=[2, 5, 2, 0])
         
         style.configure('VSCode.TNotebook.Tab',
                        background=self.colors['bg_secondary'],
                        foreground=self.colors['text_secondary'],
-                       padding=[20, 8],
-                       focuscolor='none',
+                       padding=[12, 8],
                        borderwidth=0)
         
         style.map('VSCode.TNotebook.Tab',
-                  background=[('selected', self.colors['bg_primary']),
-                             ('active', self.colors['bg_tertiary'])],
-                  foreground=[('selected', self.colors['text_primary'])])
-    
-    def create_title_bar(self, parent):
-        """VS Code style title bar"""
-        title_bar = tk.Frame(parent, bg=self.colors['bg_secondary'], height=35)
-        title_bar.pack(fill="x")
-        title_bar.pack_propagate(False)
+                 background=[('selected', self.colors['bg_primary']),
+                           ('active', self.colors['bg_tertiary'])],
+                 foreground=[('selected', self.colors['text_primary']),
+                           ('active', self.colors['text_primary'])])
         
-        # Left side - title
-        left_frame = tk.Frame(title_bar, bg=self.colors['bg_secondary'])
-        left_frame.pack(side="left", fill="y", padx=15)
+        # Configure buttons
+        style.configure('VSCode.TButton',
+                       background=self.colors['button_bg'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=1,
+                       focuscolor='none',
+                       padding=[10, 6])
         
-        tk.Label(left_frame, text="IgniteRemote Professional", 
-                font=("Segoe UI", 11), 
-                bg=self.colors['bg_secondary'], fg=self.colors['text_primary']).pack(side="left", pady=8)
+        style.map('VSCode.TButton',
+                 background=[('active', self.colors['button_hover']),
+                           ('pressed', self.colors['accent_blue'])])
         
-        # Right side - status
-        right_frame = tk.Frame(title_bar, bg=self.colors['bg_secondary'])
-        right_frame.pack(side="right", fill="y", padx=15)
+        # Configure frames
+        style.configure('VSCode.TFrame',
+                       background=self.colors['bg_primary'],
+                       borderwidth=0)
         
-        self.title_status_var = tk.StringVar()
-        self.title_status_var.set("●  Ready")
+        # Configure labels
+        style.configure('VSCode.TLabel',
+                       background=self.colors['bg_primary'],
+                       foreground=self.colors['text_primary'])
         
-        tk.Label(right_frame, textvariable=self.title_status_var, 
-                font=("Segoe UI", 10), 
-                bg=self.colors['bg_secondary'], fg=self.colors['accent_green']).pack(side="right", pady=8)
-    
-    def create_activity_bar(self, parent):
-        """VS Code style activity bar (left sidebar)"""
-        activity_bar = tk.Frame(parent, bg=self.colors['bg_secondary'], width=60)
-        activity_bar.pack(side="left", fill="y")
-        activity_bar.pack_propagate(False)
+        style.configure('VSCode.Title.TLabel',
+                       background=self.colors['bg_primary'],
+                       foreground=self.colors['text_primary'],
+                       font=('Segoe UI', 14, 'bold'))
         
+        style.configure('VSCode.Subtitle.TLabel',
+                       background=self.colors['bg_primary'],
+                       foreground=self.colors['text_secondary'],
+                       font=('Segoe UI', 10))
+        
+        # Configure entries
+        style.configure('VSCode.TEntry',
+                       fieldbackground=self.colors['bg_tertiary'],
+                       background=self.colors['bg_tertiary'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=1,
+                       insertcolor=self.colors['text_primary'])
+        
+    def create_layout(self):
+        """Create the main layout"""
+        # Create activity bar (left sidebar)
+        self.activity_bar = tk.Frame(self.root, bg=self.colors['bg_secondary'], width=60)
+        self.activity_bar.pack(side='left', fill='y')
+        self.activity_bar.pack_propagate(False)
+        
+        # Create main content area
+        self.main_area = tk.Frame(self.root, bg=self.colors['bg_primary'])
+        self.main_area.pack(side='left', fill='both', expand=True)
+        
+        # Create title bar
+        self.title_bar = tk.Frame(self.main_area, bg=self.colors['bg_primary'], height=40)
+        self.title_bar.pack(fill='x', pady=(0, 1))
+        self.title_bar.pack_propagate(False)
+        
+        # Add title
+        title_label = tk.Label(self.title_bar, 
+                              text="IgniteRemote Professional", 
+                              bg=self.colors['bg_primary'], 
+                              fg=self.colors['text_primary'],
+                              font=('Segoe UI', 16, 'bold'))
+        title_label.pack(side='left', padx=20, pady=10)
+        
+        # Create notebook for tabs
+        self.notebook = ttk.Notebook(self.main_area, style='VSCode.TNotebook')
+        self.notebook.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        
+        # Create tabs
+        self.create_host_tab()
+        self.create_client_tab()
+        
+        # Activity bar buttons
+        self.create_activity_buttons()
+        
+    def create_activity_buttons(self):
+        """Create activity bar buttons"""
         # Host button
-        self.host_btn = tk.Button(activity_bar, text="🖥️", 
-                                 font=("Segoe UI", 20),
-                                 bg=self.colors['bg_secondary'], fg=self.colors['accent_blue'],
-                                 relief="flat", bd=0, width=3, height=2,
-                                 command=lambda: self.switch_tab("host"),
-                                 cursor="hand2")
+        self.host_btn = tk.Button(self.activity_bar,
+                                 text="📡",
+                                 bg=self.colors['bg_secondary'],
+                                 fg=self.colors['text_primary'],
+                                 font=('Segoe UI', 14),
+                                 relief='flat',
+                                 width=4,
+                                 command=lambda: self.notebook.select(0))
         self.host_btn.pack(pady=10)
         
-        # Client button  
-        self.client_btn = tk.Button(activity_bar, text="🔗", 
-                                   font=("Segoe UI", 20),
-                                   bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'],
-                                   relief="flat", bd=0, width=3, height=2,
-                                   command=lambda: self.switch_tab("client"),
-                                   cursor="hand2")
-        self.client_btn.pack(pady=10)
+        # Client button
+        self.client_btn = tk.Button(self.activity_bar,
+                                   text="🖥️",
+                                   bg=self.colors['bg_secondary'],
+                                   fg=self.colors['text_primary'],
+                                   font=('Segoe UI', 14),
+                                   relief='flat',
+                                   width=4,
+                                   command=lambda: self.notebook.select(1))
+        self.client_btn.pack(pady=5)
         
-        # Logs button
-        self.logs_btn = tk.Button(activity_bar, text="📋", 
-                                 font=("Segoe UI", 20),
-                                 bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'],
-                                 relief="flat", bd=0, width=3, height=2,
-                                 command=lambda: self.switch_tab("logs"),
-                                 cursor="hand2")
-        self.logs_btn.pack(pady=10)
-        
-        # Settings button at bottom
-        settings_frame = tk.Frame(activity_bar, bg=self.colors['bg_secondary'])
-        settings_frame.pack(side="bottom", pady=20)
-        
-        tk.Button(settings_frame, text="⚙️", 
-                 font=("Segoe UI", 18),
-                 bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'],
-                 relief="flat", bd=0, width=3, height=2,
-                 command=lambda: self.switch_tab("settings"),
-                 cursor="hand2").pack()
-    
-    def create_tab_bar(self, parent):
-        """VS Code style tab bar"""
-        self.tab_bar = tk.Frame(parent, bg=self.colors['bg_secondary'], height=40)
-        self.tab_bar.pack(fill="x")
-        self.tab_bar.pack_propagate(False)
-        
-        # Tab title
-        self.tab_title_var = tk.StringVar()
-        self.tab_title_var.set("Host Session")
-        
-        tk.Label(self.tab_bar, textvariable=self.tab_title_var, 
-                font=("Segoe UI", 12, "bold"), 
-                bg=self.colors['bg_secondary'], fg=self.colors['text_primary']).pack(side="left", padx=20, pady=10)
-    
-    def create_status_bar(self, parent):
-        """VS Code style status bar"""
-        status_bar = tk.Frame(parent, bg=self.colors['accent_blue'], height=25)
-        status_bar.pack(fill="x", side="bottom")
-        status_bar.pack_propagate(False)
-        
-        # Left status
-        left_status = tk.Frame(status_bar, bg=self.colors['accent_blue'])
-        left_status.pack(side="left", fill="y", padx=10)
-        
-        self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
-        
-        tk.Label(left_status, textvariable=self.status_var, 
-                font=("Segoe UI", 9), 
-                bg=self.colors['accent_blue'], fg='white').pack(pady=3)
-        
-        # Right status
-        right_status = tk.Frame(status_bar, bg=self.colors['accent_blue'])
-        right_status.pack(side="right", fill="y", padx=10)
-        
-        tk.Label(right_status, text="IgniteRemote Pro v2.0", 
-                font=("Segoe UI", 9), 
-                bg=self.colors['accent_blue'], fg='white').pack(pady=3)
-    
-    def switch_tab(self, tab_name):
-        """Switch between tabs"""
-        # Update activity bar button states
-        self.host_btn.config(fg=self.colors['text_secondary'])
-        self.client_btn.config(fg=self.colors['text_secondary'])
-        self.logs_btn.config(fg=self.colors['text_secondary'])
-        
-        # Clear content frame
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-        
-        # Show selected tab
-        if tab_name == "host":
-            self.host_btn.config(fg=self.colors['accent_blue'])
-            self.tab_title_var.set("Host Session")
-            self.show_host_panel()
-        elif tab_name == "client":
-            self.client_btn.config(fg=self.colors['accent_blue'])
-            self.tab_title_var.set("Join Session")
-            self.show_client_panel()
-        elif tab_name == "logs":
-            self.logs_btn.config(fg=self.colors['accent_blue'])
-            self.tab_title_var.set("Activity Logs")
-            self.show_logs_panel()
-        elif tab_name == "settings":
-            self.tab_title_var.set("Settings")
-            self.show_settings_panel()
-        
-        self.current_tab = tab_name
-    
-    def show_host_panel(self):
-        """Show host panel with VS Code styling"""
-        # Main container
-        main_container = tk.Frame(self.content_frame, bg=self.colors['bg_primary'])
-        main_container.pack(fill="both", expand=True, padx=30, pady=30)
+    def create_host_tab(self):
+        """Create the host tab"""
+        host_frame = ttk.Frame(self.notebook, style='VSCode.TFrame')
+        self.notebook.add(host_frame, text="🟢 Host (Server)")
         
         # Header
-        header = tk.Frame(main_container, bg=self.colors['bg_primary'])
-        header.pack(fill="x", pady=(0, 30))
+        header_frame = ttk.Frame(host_frame, style='VSCode.TFrame')
+        header_frame.pack(fill='x', padx=20, pady=20)
         
-        tk.Label(header, text="Share Your Desktop", 
-                font=("Segoe UI", 24), 
-                bg=self.colors['bg_primary'], fg=self.colors['text_primary']).pack(side="left")
+        title_label = ttk.Label(header_frame, text="Share Your Desktop", style='VSCode.Title.TLabel')
+        title_label.pack(anchor='w')
         
-        # Description
-        tk.Label(main_container, text="Allow others to remotely connect and control your computer", 
-                font=("Segoe UI", 12), 
-                bg=self.colors['bg_primary'], fg=self.colors['text_secondary']).pack(anchor="w", pady=(0, 40))
+        subtitle_label = ttk.Label(header_frame, text="Allow others to view and control your screen", style='VSCode.Subtitle.TLabel')
+        subtitle_label.pack(anchor='w', pady=(5, 0))
         
-        # Control panel
-        control_panel = tk.Frame(main_container, bg=self.colors['bg_tertiary'], 
-                                relief="flat", bd=1, padx=30, pady=30)
-        control_panel.pack(fill="x", pady=(0, 20))
+        # Session info
+        session_frame = ttk.Frame(host_frame, style='VSCode.TFrame')
+        session_frame.pack(fill='x', padx=20, pady=(0, 20))
         
-        # Buttons
-        button_frame = tk.Frame(control_panel, bg=self.colors['bg_tertiary'])
-        button_frame.pack(fill="x", pady=(0, 20))
+        session_label = ttk.Label(session_frame, text="Session Code:", style='VSCode.TLabel')
+        session_label.pack(anchor='w')
         
-        self.host_start_btn = tk.Button(button_frame, text="Start Hosting", 
-                                       font=("Segoe UI", 12),
-                                       bg=self.colors['button_bg'], fg='white',
-                                       relief="flat", bd=0, padx=25, pady=10,
-                                       command=self.start_hosting,
-                                       cursor="hand2")
-        self.host_start_btn.pack(side="left", padx=(0, 15))
+        code_frame = ttk.Frame(session_frame, style='VSCode.TFrame')
+        code_frame.pack(fill='x', pady=(5, 0))
         
-        self.host_stop_btn = tk.Button(button_frame, text="Stop Hosting", 
-                                      font=("Segoe UI", 12),
-                                      bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'],
-                                      relief="flat", bd=0, padx=25, pady=10,
-                                      command=self.stop_hosting, state="disabled",
-                                      cursor="hand2")
-        self.host_stop_btn.pack(side="left")
+        self.session_display = tk.Label(code_frame,
+                                       textvariable=self.session_code_var,
+                                       bg=self.colors['bg_tertiary'],
+                                       fg=self.colors['accent_green'],
+                                       font=('Courier New', 16, 'bold'),
+                                       relief='solid',
+                                       borderwidth=1,
+                                       pady=10)
+        self.session_display.pack(side='left', fill='x', expand=True, padx=(0, 10))
         
-        # Session code section
-        code_section = tk.Frame(control_panel, bg=self.colors['bg_tertiary'])
-        code_section.pack(fill="x", pady=(20, 0))
+        self.copy_btn = ttk.Button(code_frame, text="📋 Copy", style='VSCode.TButton',
+                                  command=self.copy_session_code)
+        self.copy_btn.pack(side='right')
         
-        tk.Label(code_section, text="Session Code", 
-                font=("Segoe UI", 11, "bold"), 
-                bg=self.colors['bg_tertiary'], fg=self.colors['text_primary']).pack(anchor="w", pady=(0, 10))
+        # Controls
+        controls_frame = ttk.Frame(host_frame, style='VSCode.TFrame')
+        controls_frame.pack(fill='x', padx=20, pady=(0, 20))
         
-        code_display_frame = tk.Frame(code_section, bg=self.colors['bg_primary'], 
-                                     relief="solid", bd=1, padx=20, pady=15)
-        code_display_frame.pack(fill="x", pady=(0, 15))
+        self.start_btn = ttk.Button(controls_frame, text="▶️ Start Server", style='VSCode.TButton',
+                                   command=self.start_hosting)
+        self.start_btn.pack(side='left', padx=(0, 10))
         
-        self.code_display = tk.Label(code_display_frame, textvariable=self.session_code_var, 
-                                    font=("JetBrains Mono", 18, "bold"), 
-                                    bg=self.colors['bg_primary'], fg=self.colors['accent_red'])
-        self.code_display.pack()
+        self.stop_btn = ttk.Button(controls_frame, text="⏹️ Stop Server", style='VSCode.TButton',
+                                  command=self.stop_hosting, state='disabled')
+        self.stop_btn.pack(side='left')
         
-        self.copy_code_btn = tk.Button(code_section, text="Copy to Clipboard", 
-                                      font=("Segoe UI", 10),
-                                      bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'],
-                                      relief="flat", bd=0, padx=20, pady=8,
-                                      command=self.copy_session_code, state="disabled",
-                                      cursor="hand2")
-        self.copy_code_btn.pack(anchor="w")
+        # Status
+        status_frame = ttk.Frame(host_frame, style='VSCode.TFrame')
+        status_frame.pack(fill='x', padx=20, pady=(0, 20))
         
-        # Status section
-        status_section = tk.Frame(main_container, bg=self.colors['bg_tertiary'], 
-                                 relief="flat", bd=1, padx=20, pady=15)
-        status_section.pack(fill="x")
+        status_label = ttk.Label(status_frame, text="Status:", style='VSCode.TLabel')
+        status_label.pack(anchor='w')
         
-        tk.Label(status_section, text="Status", 
-                font=("Segoe UI", 11, "bold"), 
-                bg=self.colors['bg_tertiary'], fg=self.colors['text_primary']).pack(side="left")
+        self.host_status_label = ttk.Label(status_frame, textvariable=self.host_status_var, style='VSCode.TLabel')
+        self.host_status_label.pack(anchor='w', pady=(5, 0))
         
-        tk.Label(status_section, textvariable=self.host_status_var, 
-                font=("Segoe UI", 10), 
-                bg=self.colors['bg_tertiary'], fg=self.colors['text_secondary']).pack(side="left", padx=(20, 0))
-    
-    def show_client_panel(self):
-        """Show client panel with VS Code styling"""
-        # Main container
-        main_container = tk.Frame(self.content_frame, bg=self.colors['bg_primary'])
-        main_container.pack(fill="both", expand=True, padx=30, pady=30)
+        # Log
+        log_frame = ttk.Frame(host_frame, style='VSCode.TFrame')
+        log_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        
+        log_title = ttk.Label(log_frame, text="Server Log:", style='VSCode.TLabel')
+        log_title.pack(anchor='w')
+        
+        self.host_log = scrolledtext.ScrolledText(log_frame, 
+                                                 bg=self.colors['bg_tertiary'],
+                                                 fg=self.colors['text_primary'],
+                                                 insertbackground=self.colors['text_primary'],
+                                                 selectbackground=self.colors['accent_blue'],
+                                                 state='disabled',
+                                                 font=('Consolas', 9))
+        self.host_log.pack(fill='both', expand=True, pady=(5, 0))
+        
+    def create_client_tab(self):
+        """Create the client tab"""
+        client_frame = ttk.Frame(self.notebook, style='VSCode.TFrame')
+        self.notebook.add(client_frame, text="🔵 Connect (Client)")
         
         # Header
-        header = tk.Frame(main_container, bg=self.colors['bg_primary'])
-        header.pack(fill="x", pady=(0, 30))
+        header_frame = ttk.Frame(client_frame, style='VSCode.TFrame')
+        header_frame.pack(fill='x', padx=20, pady=20)
         
-        tk.Label(header, text="Connect to Remote Desktop", 
-                font=("Segoe UI", 24), 
-                bg=self.colors['bg_primary'], fg=self.colors['text_primary']).pack(side="left")
+        title_label = ttk.Label(header_frame, text="Connect to Remote Desktop", style='VSCode.Title.TLabel')
+        title_label.pack(anchor='w')
         
-        # Description
-        tk.Label(main_container, text="Enter a session code to connect to and control another computer", 
-                font=("Segoe UI", 12), 
-                bg=self.colors['bg_primary'], fg=self.colors['text_secondary']).pack(anchor="w", pady=(0, 40))
+        subtitle_label = ttk.Label(header_frame, text="Enter session code to connect to a remote computer", style='VSCode.Subtitle.TLabel')
+        subtitle_label.pack(anchor='w', pady=(5, 0))
         
-        # Connection panel
-        connection_panel = tk.Frame(main_container, bg=self.colors['bg_tertiary'], 
-                                   relief="flat", bd=1, padx=30, pady=30)
-        connection_panel.pack(fill="x", pady=(0, 20))
+        # Connection form
+        connect_frame = ttk.Frame(client_frame, style='VSCode.TFrame')
+        connect_frame.pack(fill='x', padx=20, pady=(0, 20))
         
-        # Input section
-        input_section = tk.Frame(connection_panel, bg=self.colors['bg_tertiary'])
-        input_section.pack(fill="x", pady=(0, 20))
+        code_label = ttk.Label(connect_frame, text="Session Code:", style='VSCode.TLabel')
+        code_label.pack(anchor='w')
         
-        tk.Label(input_section, text="Session Code", 
-                font=("Segoe UI", 11, "bold"), 
-                bg=self.colors['bg_tertiary'], fg=self.colors['text_primary']).pack(anchor="w", pady=(0, 10))
+        entry_frame = ttk.Frame(connect_frame, style='VSCode.TFrame')
+        entry_frame.pack(fill='x', pady=(5, 0))
         
-        self.code_entry = tk.Entry(input_section, font=("JetBrains Mono", 14), 
-                                  width=15, bg=self.colors['bg_primary'], fg=self.colors['text_primary'],
-                                  relief="solid", bd=1, insertbackground=self.colors['text_primary'])
-        self.code_entry.pack(anchor="w", ipady=8)
-        self.code_entry.bind('<Return>', lambda e: self.connect_to_session())
+        self.session_entry = ttk.Entry(entry_frame, style='VSCode.TEntry', font=('Courier New', 12))
+        self.session_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
+        self.session_entry.bind('<Return>', lambda e: self.connect_to_session())
         
-        # Buttons
-        button_frame = tk.Frame(connection_panel, bg=self.colors['bg_tertiary'])
-        button_frame.pack(fill="x", pady=(20, 0))
+        self.connect_btn = ttk.Button(entry_frame, text="🔗 Connect", style='VSCode.TButton',
+                                     command=self.connect_to_session)
+        self.connect_btn.pack(side='right')
         
-        self.client_connect_btn = tk.Button(button_frame, text="Connect", 
-                                           font=("Segoe UI", 12),
-                                           bg=self.colors['button_bg'], fg='white',
-                                           relief="flat", bd=0, padx=25, pady=10,
-                                           command=self.connect_to_session,
-                                           cursor="hand2")
-        self.client_connect_btn.pack(side="left", padx=(0, 15))
+        # Controls
+        controls_frame = ttk.Frame(client_frame, style='VSCode.TFrame')
+        controls_frame.pack(fill='x', padx=20, pady=(0, 20))
         
-        self.client_disconnect_btn = tk.Button(button_frame, text="Disconnect", 
-                                              font=("Segoe UI", 12),
-                                              bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'],
-                                              relief="flat", bd=0, padx=25, pady=10,
-                                              command=self.disconnect_from_session, state="disabled",
-                                              cursor="hand2")
-        self.client_disconnect_btn.pack(side="left")
+        self.disconnect_btn = ttk.Button(controls_frame, text="❌ Disconnect", style='VSCode.TButton',
+                                        command=self.disconnect_client, state='disabled')
+        self.disconnect_btn.pack(side='left')
         
-        # Status section
-        status_section = tk.Frame(main_container, bg=self.colors['bg_tertiary'], 
-                                 relief="flat", bd=1, padx=20, pady=15)
-        status_section.pack(fill="x")
+        # Status
+        status_frame = ttk.Frame(client_frame, style='VSCode.TFrame')
+        status_frame.pack(fill='x', padx=20, pady=(0, 20))
         
-        tk.Label(status_section, text="Connection Status", 
-                font=("Segoe UI", 11, "bold"), 
-                bg=self.colors['bg_tertiary'], fg=self.colors['text_primary']).pack(side="left")
+        status_label = ttk.Label(status_frame, text="Status:", style='VSCode.TLabel')
+        status_label.pack(anchor='w')
         
-        tk.Label(status_section, textvariable=self.client_status_var, 
-                font=("Segoe UI", 10), 
-                bg=self.colors['bg_tertiary'], fg=self.colors['text_secondary']).pack(side="left", padx=(20, 0))
-    
-    def show_logs_panel(self):
-        """Show logs panel with VS Code styling"""
-        # Main container
-        main_container = tk.Frame(self.content_frame, bg=self.colors['bg_primary'])
-        main_container.pack(fill="both", expand=True, padx=1, pady=1)
+        self.client_status_label = ttk.Label(status_frame, textvariable=self.client_status_var, style='VSCode.TLabel')
+        self.client_status_label.pack(anchor='w', pady=(5, 0))
         
-        # Log display
-        self.activity_log = scrolledtext.ScrolledText(main_container,
-                                                     bg=self.colors['bg_primary'], 
-                                                     fg=self.colors['text_primary'],
-                                                     font=("JetBrains Mono", 10),
-                                                     relief="flat", bd=0,
-                                                     insertbackground=self.colors['text_primary'],
-                                                     selectbackground=self.colors['bg_secondary'])
-        self.activity_log.pack(fill="both", expand=True, padx=15, pady=15)
+        # Log
+        log_frame = ttk.Frame(client_frame, style='VSCode.TFrame')
+        log_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
         
-        # Configure text tags for colored output
-        self.activity_log.tag_config("info", foreground=self.colors['text_primary'])
-        self.activity_log.tag_config("success", foreground=self.colors['accent_green'])
-        self.activity_log.tag_config("warning", foreground=self.colors['accent_orange'])
-        self.activity_log.tag_config("error", foreground=self.colors['accent_red'])
-        self.activity_log.tag_config("timestamp", foreground=self.colors['text_muted'])
-    
-    def show_settings_panel(self):
-        """Show settings panel"""
-        main_container = tk.Frame(self.content_frame, bg=self.colors['bg_primary'])
-        main_container.pack(fill="both", expand=True, padx=30, pady=30)
+        log_title = ttk.Label(log_frame, text="Client Log:", style='VSCode.TLabel')
+        log_title.pack(anchor='w')
         
-        tk.Label(main_container, text="Settings", 
-                font=("Segoe UI", 24), 
-                bg=self.colors['bg_primary'], fg=self.colors['text_primary']).pack(anchor="w", pady=(0, 30))
+        self.client_log = scrolledtext.ScrolledText(log_frame, 
+                                                   bg=self.colors['bg_tertiary'],
+                                                   fg=self.colors['text_primary'],
+                                                   insertbackground=self.colors['text_primary'],
+                                                   selectbackground=self.colors['accent_blue'],
+                                                   state='disabled',
+                                                   font=('Consolas', 9))
+        self.client_log.pack(fill='both', expand=True, pady=(5, 0))
         
-        tk.Label(main_container, text="Settings panel - coming soon", 
-                font=("Segoe UI", 12), 
-                bg=self.colors['bg_primary'], fg=self.colors['text_secondary']).pack(anchor="w")
-    
-    def update_code_display_color(self, state):
-        """Safely update code display color"""
-        try:
-            if hasattr(self, 'code_display'):
-                if state == 'success':
-                    self.code_display.config(fg=self.colors['accent_green'])
-                else:
-                    self.code_display.config(fg=self.colors['accent_red'])
-        except:
-            pass
-    
-    def update_copy_button(self, enabled):
-        """Safely update copy button state"""
-        try:
-            if hasattr(self, 'copy_code_btn'):
-                if enabled:
-                    self.copy_code_btn.config(state="normal", bg=self.colors['button_bg'], fg='white')
-                else:
-                    self.copy_code_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
-        except:
-            pass
-    
-    def update_host_buttons(self, state):
-        """Safely update host button states"""
-        try:
-            if hasattr(self, 'host_start_btn') and hasattr(self, 'host_stop_btn'):
-                if state == 'active':
-                    self.host_start_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
-                    self.host_stop_btn.config(state="normal", bg=self.colors['accent_red'], fg='white')
-                else:
-                    self.host_start_btn.config(state="normal", bg=self.colors['button_bg'], fg='white')
-                    self.host_stop_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
-        except:
-            pass
-    
-    # Event handlers
+    def apply_vs_code_style(self):
+        """Apply additional VS Code styling"""
+        # Configure scrollbars
+        for widget in [self.host_log, self.client_log]:
+            # Configure scrollbar
+            scrollbar = widget.vbar
+            scrollbar.config(
+                bg=self.colors['bg_secondary'],
+                troughcolor=self.colors['bg_tertiary'],
+                activebackground=self.colors['text_secondary'],
+                highlightthickness=0,
+                borderwidth=0
+            )
+            
+    def setup_relay_callbacks(self):
+        """Setup relay client callbacks - working version"""
+        self.relay_client.on_screen_data = self.handle_relay_screen_data
+        self.relay_client.on_input_data = self.handle_relay_input_data  
+        self.relay_client.on_connection_change = self.handle_relay_connection_change
+        
+    # HOST METHODS
     def start_hosting(self):
-        """Start hosting a session"""
-        self.log_activity("Starting host session...", "info")
-        self.title_status_var.set("●  Creating Session...")
-        self.status_var.set("Creating session...")
-        self.host_start_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
+        """Start hosting via relay server"""
+        self.log_to_host("🔄 Creating cloud session...")
+        self.host_status_var.set("Creating session...")
+        self.start_btn.config(state="disabled")
         
         def host_thread():
             try:
-                self.root.after(0, lambda: self.log_activity("Connecting to relay server...", "info"))
+                self.setup_relay_callbacks()
                 
                 # Create session
                 session_id = self.relay_client.create_session()
-                if session_id:
-                    self.relay_session_id = session_id
-                    self.root.after(0, lambda: self.log_activity(f"Session ID created: {session_id}", "success"))
+                if not session_id:
+                    self.log_to_host("❌ Failed to create session")
+                    self.host_status_var.set("Failed to create session")
+                    self.start_btn.config(state="normal")
+                    return
+                
+                self.relay_session_id = session_id
+                self.session_code_var.set(session_id)
+                self.copy_btn.config(state="normal")
+                
+                # Connect as host
+                if self.relay_client.connect_as_host():
+                    self.relay_connected = True
+                    self.relay_mode = 'host'
                     
-                    # Update UI on main thread
-                    self.root.after(0, lambda: self.session_code_var.set(session_id))
-                    self.root.after(0, lambda: self.update_code_display_color('success'))
-                    self.root.after(0, lambda: self.update_copy_button(True))
-                    self.root.after(0, lambda: self.update_host_buttons('active'))
-                    self.root.after(0, lambda: self.title_status_var.set("●  Hosting Active"))
-                    self.root.after(0, lambda: self.status_var.set(f"Hosting session: {session_id}"))
-                    self.root.after(0, lambda: self.host_status_var.set(f"Hosting session {session_id}"))
-                    self.root.after(0, lambda: self.log_activity(f"Session created: {session_id}", "success"))
+                    self.log_to_host(f"✅ Session created: {session_id}")
+                    self.host_status_var.set(f"Hosting session: {session_id}")
                     
-                    # Connect as host
-                    self.root.after(0, lambda: self.log_activity("Establishing host connection...", "info"))
-                    if self.relay_client.connect_as_host():
-                        self.relay_connected = True
-                        self.relay_mode = 'host'
-                        self.root.after(0, lambda: self.log_activity("Host connected successfully", "success"))
-                        self.root.after(0, lambda: self.log_activity("Ready to accept connections", "info"))
-                        
-                        # Start screen sharing thread
-                        self.root.after(0, lambda: self.log_activity("Starting screen capture...", "info"))
-                        self.start_screen_sharing()
-                        
-                    else:
-                        self.root.after(0, lambda: self.log_activity("Failed to connect as host", "error"))
-                        self.root.after(0, lambda: self.reset_host_ui())
+                    # Update UI
+                    self.root.after(0, lambda: self.update_host_ui(True))
+                    
+                    # Start screen capture
+                    self.start_screen_capture()
                 else:
-                    self.root.after(0, lambda: self.log_activity("Failed to create session - check relay server", "error"))
-                    self.root.after(0, lambda: self.reset_host_ui())
+                    self.log_to_host("❌ Failed to connect as host")
+                    self.host_status_var.set("Failed to start hosting")
+                    self.start_btn.config(state="normal")
                     
-            except requests.exceptions.ConnectionError:
-                self.root.after(0, lambda: self.log_activity("Cannot connect to relay server - check internet connection", "error"))
-                self.root.after(0, lambda: self.reset_host_ui())
-            except requests.exceptions.Timeout:
-                self.root.after(0, lambda: self.log_activity("Relay server timeout - server may be sleeping, try again", "warning"))
-                self.root.after(0, lambda: self.reset_host_ui())
             except Exception as e:
-                self.root.after(0, lambda: self.log_activity(f"Error: {str(e)}", "error"))
-                self.root.after(0, lambda: self.reset_host_ui())
+                self.log_to_host(f"❌ Error: {e}")
+                self.host_status_var.set(f"Error: {e}")
+                self.start_btn.config(state="normal")
                 
         threading.Thread(target=host_thread, daemon=True).start()
         
-    def start_screen_sharing(self):
-        """Start the screen sharing loop for hosting"""
-        def screen_sharing_loop():
-            self.log_activity("🎥 Starting screen capture loop...", "info")
-            last_capture_time = 0
-            frame_time = 1.0 / 30  # 30 FPS for smooth performance
-            
-            while self.relay_connected and self.relay_mode == 'host':
-                try:
-                    current_time = time.time()
-                    
-                    # Only capture if enough time has passed (consistent timing)
-                    if current_time - last_capture_time >= frame_time:
-                        # Capture screen using optimized capture
-                        screen_info = self.screen_capture.capture_screen()
-                        
-                        if screen_info and 'data' in screen_info:
-                            # Send the JPEG data directly (it will be base64 encoded by relay_client)
-                            if self.relay_client.send_screen_data(screen_info['data']):
-                                last_capture_time = current_time
-                            else:
-                                self.root.after(0, lambda: self.log_activity("❌ Failed to send screen data", "warning"))
-                                # Don't break immediately, try again
-                        
-                        # Reduced sleep to prevent CPU overload but maintain speed
-                        time.sleep(0.005)  # 5ms
-                    else:
-                        # Much smaller sleep for better responsiveness
-                        time.sleep(0.001)  # 1ms
-                    
-                except Exception as e:
-                    self.root.after(0, lambda: self.log_activity(f"Screen sharing error: {str(e)}", "error"))
-                    break
-                    
-            self.root.after(0, lambda: self.log_activity("🛑 Screen sharing stopped", "info"))
-            
-        # Start screen sharing in separate thread
-        threading.Thread(target=screen_sharing_loop, daemon=True).start()
-        self.root.after(0, lambda: self.log_activity("🎬 Screen sharing thread started", "success"))
-    
     def stop_hosting(self):
         """Stop hosting"""
         self.relay_connected = False
@@ -596,110 +420,170 @@ class IgniteRemotePro:
         
         if self.relay_client:
             self.relay_client.disconnect()
-        
-        self.reset_host_ui()
-        self.log_activity("Hosting stopped", "warning")
-    
-    def reset_host_ui(self):
-        """Reset host UI to default state"""
-        self.update_host_buttons('inactive')
-        self.update_copy_button(False)
+            
+        if self.screen_capture:
+            self.screen_capture.stop_capture()
+            
         self.session_code_var.set("Not Active")
-        self.update_code_display_color('error')
-        self.title_status_var.set("●  Ready")
-        self.status_var.set("Ready")
         self.host_status_var.set("Ready to host")
-    
+        self.update_host_ui(False)
+        self.log_to_host("⏹️ Stopped hosting")
+        
+    def update_host_ui(self, hosting):
+        """Update host UI state"""
+        if hosting:
+            self.start_btn.config(state="disabled")
+            self.stop_btn.config(state="normal")
+        else:
+            self.start_btn.config(state="normal")
+            self.stop_btn.config(state="disabled")
+            self.copy_btn.config(state="disabled")
+            
+    def start_screen_capture(self):
+        """Start screen capture and streaming"""
+        def capture_loop():
+            while self.relay_connected and self.relay_mode == 'host':
+                try:
+                    # Capture screen
+                    screen_data = self.screen_capture.capture_screen()
+                    
+                    if screen_data and 'data' in screen_data:
+                        # Convert to base64 for relay
+                        jpeg_bytes = screen_data['data']
+                        base64_data = base64.b64encode(jpeg_bytes).decode('utf-8')
+                        
+                        # Send via relay
+                        self.relay_client.send_screen_data(base64_data)
+                        
+                    time.sleep(1/30)  # 30 FPS
+                except Exception as e:
+                    self.log_to_host(f"❌ Capture error: {e}")
+                    break
+                    
+        threading.Thread(target=capture_loop, daemon=True).start()
+        
+    def copy_session_code(self):
+        """Copy session code to clipboard"""
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(self.session_code_var.get())
+            self.log_to_host("📋 Session code copied to clipboard")
+        except Exception as e:
+            self.log_to_host(f"❌ Failed to copy: {e}")
+            
+    def log_to_host(self, message):
+        """Add a message to the host log"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        formatted_message = f"[{timestamp}] {message}\n"
+        
+        def update_log():
+            self.host_log.config(state="normal")
+            self.host_log.insert(tk.END, formatted_message)
+            self.host_log.see(tk.END)
+            self.host_log.config(state="disabled")
+            
+        self.root.after(0, update_log)
+        
+    # CLIENT METHODS - WORKING VERSION
     def connect_to_session(self):
-        """Connect to a session"""
-        session_code = self.code_entry.get().strip()
+        """Connect as relay client - working version"""
+        session_code = self.session_entry.get().strip().upper()
         if not session_code:
-            self.log_activity("Please enter a session code", "warning")
+            messagebox.showerror("Error", "Please enter session code")
+            return
+            
+        if len(session_code) != 6:
+            messagebox.showerror("Error", "Session code must be 6 characters")
             return
         
-        self.log_activity(f"Connecting to session: {session_code}", "info")
-        self.client_connect_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
-        self.title_status_var.set("●  Connecting...")
-        self.status_var.set("Connecting...")
-        self.client_status_var.set("Connecting...")
+        self.log_to_client(f"🔄 Connecting to session: {session_code}")
+        self.client_status_var.set(f"Connecting to {session_code}...")
+        self.connect_btn.config(state="disabled")
         
-        def client_thread():
+        def connect_thread():
             try:
-                # Connect as client to session
-                self.root.after(0, lambda: self.log_activity(f"Joining session: {session_code}...", "info"))
+                self.setup_relay_callbacks()
                 
-                if self.relay_client.join_session(session_code):
-                    self.root.after(0, lambda: self.log_activity("Connected to session", "success"))
+                if self.relay_client.connect_as_client(session_code):
+                    self.relay_connected = True
+                    self.relay_mode = 'client'
+                    self.relay_session_id = session_code
                     
-                    # Connect as client
-                    if self.relay_client.connect_as_client():
-                        self.relay_connected = True
-                        self.relay_mode = 'client'
-                        self.relay_session_id = session_code
-                        
-                        self.root.after(0, lambda: self.log_activity("Client connected successfully", "success"))
-                        self.root.after(0, lambda: self.client_disconnect_btn.config(state="normal", bg=self.colors['accent_red'], fg='white'))
-                        self.root.after(0, lambda: self.code_entry.config(state="disabled"))
-                        self.root.after(0, lambda: self.title_status_var.set("●  Connected"))
-                        self.root.after(0, lambda: self.status_var.set(f"Connected to: {session_code}"))
-                        self.root.after(0, lambda: self.client_status_var.set(f"Connected to {session_code}"))
-                        
-                        # Note: Remote viewer will be opened automatically when first screen data is received
-                        
-                    else:
-                        self.root.after(0, lambda: self.log_activity("Failed to connect as client", "error"))
-                        self.root.after(0, lambda: self.reset_client_ui())
+                    self.log_to_client(f"✅ Connected to session: {session_code}")
+                    self.client_status_var.set(f"Connected to {session_code} - Receiving screen...")
+                    
+                    self.root.after(0, lambda: self.update_client_ui(True))
+                    
+                    # Open remote viewer for relay connection - KEY WORKING PART
+                    self.root.after(0, self.open_remote_viewer)
                 else:
-                    self.root.after(0, lambda: self.log_activity("Failed to join session - check session code", "error"))
-                    self.root.after(0, lambda: self.reset_client_ui())
+                    self.log_to_client(f"❌ Failed to connect to {session_code}")
+                    self.client_status_var.set("Connection failed")
+                    self.connect_btn.config(state="normal")
                     
             except Exception as e:
-                self.root.after(0, lambda: self.log_activity(f"Connection error: {str(e)}", "error"))
-                self.root.after(0, lambda: self.reset_client_ui())
+                self.log_to_client(f"❌ Connection error: {e}")
+                self.client_status_var.set(f"Error: {e}")
+                self.connect_btn.config(state="normal")
+                
+        threading.Thread(target=connect_thread, daemon=True).start()
         
-        threading.Thread(target=client_thread, daemon=True).start()
-    
-    def disconnect_from_session(self):
-        """Disconnect from session"""
-        self.log_activity("Disconnected from session", "warning")
-        self.client_connect_btn.config(state="normal", bg=self.colors['button_bg'], fg='white')
-        self.client_disconnect_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
-        self.code_entry.config(state="normal")
-        self.code_entry.delete(0, tk.END)
-        self.title_status_var.set("●  Ready")
-        self.status_var.set("Ready")
-        self.client_status_var.set("Not connected")
-    
-    def reset_client_ui(self):
-        """Reset client UI to initial state"""
-        self.client_connect_btn.config(state="normal", bg=self.colors['button_bg'], fg='white')
-        self.client_disconnect_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
-        self.code_entry.config(state="normal")
-        self.title_status_var.set("●  Ready")
-        self.status_var.set("Ready")
-        self.client_status_var.set("Not connected")
+    def disconnect_client(self):
+        """Disconnect relay client"""
         self.relay_connected = False
         self.relay_mode = None
         
-    def start_screen_display(self):
-        """Start the remote screen display window"""
-        try:
-            self.log_activity("🖥️ Opening remote desktop window...", "info")
+        if self.relay_client:
+            self.relay_client.disconnect()
             
-            # Create remote viewer - pass self as the app reference
+        # Close remote viewer
+        if hasattr(self, 'remote_viewer') and self.remote_viewer:
+            if hasattr(self.remote_viewer, 'viewer_window') and self.remote_viewer.viewer_window:
+                self.remote_viewer.viewer_window.destroy()
+            self.remote_viewer = None
+            
+        self.client_status_var.set("Not connected")
+        self.update_client_ui(False)
+        self.log_to_client("❌ Disconnected")
+        
+    def update_client_ui(self, connected):
+        """Update client UI state"""
+        if connected:
+            self.connect_btn.config(state="disabled")
+            self.disconnect_btn.config(state="normal")
+        else:
+            self.connect_btn.config(state="normal")
+            self.disconnect_btn.config(state="disabled")
+            
+    def log_to_client(self, message):
+        """Add a message to the client log"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        formatted_message = f"[{timestamp}] {message}\n"
+        
+        def update_log():
+            self.client_log.config(state="normal")
+            self.client_log.insert(tk.END, formatted_message)
+            self.client_log.see(tk.END)
+            self.client_log.config(state="disabled")
+            
+        self.root.after(0, update_log)
+        
+    # REMOTE VIEWER METHODS - WORKING VERSION
+    def open_remote_viewer(self):
+        """Open the remote desktop viewer window - working version"""
+        def create_viewer():
             self.remote_viewer = OptimizedRemoteViewer(self)
             self.remote_viewer.create_viewer_window()
             
-            self.log_activity("🎮 Remote desktop window opened - you can now control the remote screen", "success")
-            
-        except Exception as e:
-            self.log_activity(f"❌ Failed to open remote desktop: {str(e)}", "error")
-    
+        # Create viewer in main thread
+        self.root.after(0, create_viewer)
+        self.log_to_client("🖥️ Remote desktop viewer opened")
+        
+    # RELAY CALLBACK METHODS - WORKING VERSION
     def handle_relay_screen_data(self, data):
-        """Handle received screen data from relay - PROPER IMPLEMENTATION"""
+        """Handle received screen data from relay - working version"""
         try:
-            import base64
-            # Decode the base64 data to get JPEG bytes
+            # Decode base64 data to get JPEG bytes
             jpeg_bytes = base64.b64decode(data)
             
             # Create screen info dict like the original capture format
@@ -717,81 +601,26 @@ class IgniteRemotePro:
                 self.open_remote_viewer()
                 if hasattr(self, 'remote_viewer') and self.remote_viewer:
                     self.remote_viewer.update_display(screen_info)
-                
+                    
         except Exception as e:
-            self.log_activity(f"❌ Error handling screen data: {e}", "error")
-    
+            self.log_to_client(f"❌ Screen data error: {e}")
+            
     def handle_relay_input_data(self, data):
         """Handle received input data from relay"""
         try:
-            if self.relay_mode == 'host':
-                # Process input on host side
-                if hasattr(self, 'input_handler') and self.input_handler:
-                    self.input_handler.handle_remote_input(data)
+            if hasattr(self, 'input_handler') and self.input_handler:
+                self.input_handler.handle_input(data)
         except Exception as e:
-            self.log_activity(f"❌ Error handling input: {e}", "error")
-    
-    def handle_relay_connection_change(self, status):
-        """Handle relay connection status changes"""
-        self.log_activity(f"🔄 Connection status: {status}", "info")
-        
-        if status == 'client_connected':
-            self.root.after(0, lambda: self.host_status_var.set("🎉 Client connected! Screen sharing active."))
-        elif status == 'host_available':
-            self.root.after(0, lambda: self.client_status_var.set("🎉 Host available! Receiving screen data..."))
-        elif status in ['host_disconnected', 'client_disconnected']:
-            self.root.after(0, lambda: self.log_activity("📴 Other party disconnected", "warning"))
-    
-    def open_remote_viewer(self):
-        """Open the remote desktop viewer window"""
-        try:
-            if not hasattr(self, 'remote_viewer') or not self.remote_viewer:
-                self.remote_viewer = OptimizedRemoteViewer(self)
-                self.remote_viewer.create_viewer_window()
-                self.log_activity("🖥️ Remote desktop window opened", "success")
-        except Exception as e:
-            self.log_activity(f"❌ Failed to open remote viewer: {e}", "error")
-    
-    def copy_session_code(self):
-        """Copy session code to clipboard"""
-        if self.relay_session_id:
-            self.root.clipboard_clear()
-            self.root.clipboard_append(self.relay_session_id)
-            self.log_activity("Session code copied to clipboard", "info")
-    
-    def log_activity(self, message, level="info"):
-        """Add message to activity log with color coding"""
-        if not hasattr(self, 'activity_log'):
-            # Store logs if log panel hasn't been created yet
-            if not hasattr(self, 'pending_logs'):
-                self.pending_logs = []
-            self.pending_logs.append((message, level))
-            return
-        
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        
-        self.activity_log.config(state="normal")
-        
-        # Add timestamp
-        self.activity_log.insert(tk.END, f"[{timestamp}] ", "timestamp")
-        
-        # Add message with appropriate color
-        if level == "success":
-            self.activity_log.insert(tk.END, "✓ ", "success")
-        elif level == "error":
-            self.activity_log.insert(tk.END, "✗ ", "error")
-        elif level == "warning":
-            self.activity_log.insert(tk.END, "⚠ ", "warning")
-        else:
-            self.activity_log.insert(tk.END, "• ", "info")
-        
-        self.activity_log.insert(tk.END, f"{message}\n", level)
-        self.activity_log.see(tk.END)
-        self.activity_log.config(state="disabled")
-    
+            self.log_to_host(f"❌ Input error: {e}")
+            
+    def handle_relay_connection_change(self, connected):
+        """Handle relay connection changes"""
+        if not connected:
+            self.log_to_client("⚠️ Relay connection lost")
+            self.log_to_host("⚠️ Relay connection lost")
+            
     def run(self):
-        """Start the application"""
-        self.log_activity("IgniteRemote Professional started", "success")
+        """Run the application"""
         self.root.mainloop()
 
 if __name__ == "__main__":
