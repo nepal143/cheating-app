@@ -3,7 +3,7 @@
 IgniteRemote Professional - VS Code Style UI
 Clean, minimalistic, professional remote desktop solution
 Based on working version with modern UI
-"""
+""" 
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
