@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Import our modules
 from relay_client import RelayClient
-from screen_capture import ScreenCapture
+from optimized_capture import OptimizedScreenCapture, OptimizedRemoteViewer, OptimizedInputHandler
 
 class IgniteRemotePro:
     def __init__(self):
@@ -44,7 +44,9 @@ class IgniteRemotePro:
         
         # Initialize variables first (before UI setup)
         self.relay_client = RelayClient()
-        self.screen_capture = ScreenCapture()
+        self.screen_capture = OptimizedScreenCapture()
+        self.remote_viewer = None
+        self.input_handler = None
         self.relay_connected = False
         self.relay_mode = None
         self.relay_session_id = None
@@ -540,27 +542,42 @@ class IgniteRemotePro:
     def start_screen_sharing(self):
         """Start the screen sharing loop for hosting"""
         def screen_sharing_loop():
+            self.log_activity("🎥 Starting screen capture loop...", "info")
+            last_capture_time = 0
+            frame_time = 1.0 / 30  # 30 FPS for smooth performance
+            
             while self.relay_connected and self.relay_mode == 'host':
                 try:
-                    # Capture screen
-                    screen_data = self.screen_capture.capture_screen()
-                    if screen_data:
-                        # Send screen data via relay
-                        if not self.relay_client.send_screen_data(screen_data):
-                            self.root.after(0, lambda: self.log_activity("Failed to send screen data", "warning"))
-                            break
+                    current_time = time.time()
                     
-                    # Limit FPS to ~30 for good performance
-                    time.sleep(1/30)
+                    # Only capture if enough time has passed (consistent timing)
+                    if current_time - last_capture_time >= frame_time:
+                        # Capture screen using optimized capture
+                        screen_info = self.screen_capture.capture_screen()
+                        
+                        if screen_info and 'data' in screen_info:
+                            # Send the JPEG data directly (it will be base64 encoded by relay_client)
+                            if self.relay_client.send_screen_data(screen_info['data']):
+                                last_capture_time = current_time
+                            else:
+                                self.root.after(0, lambda: self.log_activity("❌ Failed to send screen data", "warning"))
+                                # Don't break immediately, try again
+                        
+                        # Reduced sleep to prevent CPU overload but maintain speed
+                        time.sleep(0.005)  # 5ms
+                    else:
+                        # Much smaller sleep for better responsiveness
+                        time.sleep(0.001)  # 1ms
                     
                 except Exception as e:
                     self.root.after(0, lambda: self.log_activity(f"Screen sharing error: {str(e)}", "error"))
                     break
                     
-            self.root.after(0, lambda: self.log_activity("Screen sharing stopped", "info"))
+            self.root.after(0, lambda: self.log_activity("🛑 Screen sharing stopped", "info"))
             
         # Start screen sharing in separate thread
         threading.Thread(target=screen_sharing_loop, daemon=True).start()
+        self.root.after(0, lambda: self.log_activity("🎬 Screen sharing thread started", "success"))
     
     def stop_hosting(self):
         """Stop hosting"""
@@ -643,6 +660,33 @@ class IgniteRemotePro:
         self.title_status_var.set("●  Ready")
         self.status_var.set("Ready")
         self.client_status_var.set("Not connected")
+    
+    def reset_client_ui(self):
+        """Reset client UI to initial state"""
+        self.client_connect_btn.config(state="normal", bg=self.colors['button_bg'], fg='white')
+        self.client_disconnect_btn.config(state="disabled", bg=self.colors['bg_secondary'], fg=self.colors['text_secondary'])
+        self.code_entry.config(state="normal")
+        self.title_status_var.set("●  Ready")
+        self.status_var.set("Ready")
+        self.client_status_var.set("Not connected")
+        self.relay_connected = False
+        self.relay_mode = None
+        
+    def start_screen_display(self):
+        """Start the remote screen display window"""
+        try:
+            self.log_activity("🖥️ Opening remote desktop window...", "info")
+            
+            # Create remote viewer
+            self.remote_viewer = OptimizedRemoteViewer(self.relay_client)
+            self.input_handler = OptimizedInputHandler(self.relay_client)
+            
+            # Start the remote viewer in a new window
+            self.remote_viewer.start_viewer()
+            self.log_activity("🎮 Remote desktop window opened - you can now control the remote screen", "success")
+            
+        except Exception as e:
+            self.log_activity(f"❌ Failed to open remote desktop: {str(e)}", "error")
     
     def copy_session_code(self):
         """Copy session code to clipboard"""
