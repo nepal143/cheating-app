@@ -27,18 +27,26 @@ class RelayClient:
         self.on_connection_change: Optional[Callable] = None
         
     def create_session(self) -> str:
-        """Create a new session and return session ID"""
+        """Create a REAL session but display as BANKAI"""
         try:
+            # Create a REAL session on the server
             response = requests.post(f"{self.http_url}/api/session/create", timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                self.session_id = data['sessionId']
-                print(f"✅ Session created: {self.session_id}")
-                return self.session_id
+                real_session = data['sessionId']
+                self.session_id = real_session  # Use REAL session for connections
+                print(f"✅ Session created: BANKAI (real: {real_session})")
+                
+                # Save mapping for user
+                with open("bankai_mapping.txt", "w") as f:
+                    f.write(f"DISPLAY: BANKAI\nREAL: {real_session}\nUSE IN CLIENT: {real_session}")
+                
+                return real_session  # Return REAL session
             else:
-                raise Exception(f"Failed to create session: {response.status_code}")
+                print(f"❌ Session creation failed: {response.status_code}")
+                return None
         except Exception as e:
-            print(f"❌ Error creating session: {e}")
+            print(f"❌ Session creation error: {e}")
             return None
             
     def join_session(self, session_id: str) -> bool:
@@ -110,10 +118,10 @@ class RelayClient:
         """WebSocket opened"""
         print("🚀 WebSocket connected")
         
-        # Join session with role
+        # Join session with role using REAL session ID
         message = {
             "type": self.role,
-            "sessionId": self.session_id
+            "sessionId": self.session_id  # Use the real session ID
         }
         ws.send(json.dumps(message))
         
