@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REAL Proctoring Detection Test - IgniteRemote</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .warning {
+            background: rgba(255, 193, 7, 0.2);
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .test-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        .test-button.danger {
+            background: #dc3545;
+        }
+        .test-button.danger:hover {
+            background: #c82333;
+        }
+        .test-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .results {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 2px 0;
+            display: inline-block;
+        }
+        .pass { background: #28a745; }
+        .fail { background: #dc3545; }
+        .warn { background: #ffc107; color: #000; }
+        .info { background: #17a2b8; }
+        .server-status {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .server-status.connected {
+            background: rgba(40, 167, 69, 0.2);
+            border-color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 REAL Proctoring Detection Test</h1>
+            <p>This test actually scans your system for running processes and windows</p>
+        </div>
+
+        <div class="warning">
+            ⚠️ <strong>IMPORTANT:</strong> This test requires a local detection API to be running.<br>
+            Run: <code>python detection_api.py</code> in your terminal first!
+        </div>
+
+        <div class="server-status" id="serverStatus">
+            🔴 Detection API Server: DISCONNECTED
+        </div>
+
+        <div class="test-grid">
+            <div class="test-card">
+                <h3>🔍 Real Process Detection</h3>
+                <p>Actually scans running processes for IgniteRemote</p>
+                <button class="test-button" onclick="testRealProcesses()" id="processBtn">Scan Processes</button>
+                <button class="test-button" onclick="testRealWindows()" id="windowBtn">Scan Windows</button>
+            </div>
+
+            <div class="test-card">
+                <h3>🌐 Real Network Detection</h3>
+                <p>Monitors actual network connections</p>
+                <button class="test-button" onclick="testRealConnections()" id="networkBtn">Check Connections</button>
+                <button class="test-button" onclick="monitorTraffic()" id="trafficBtn">Monitor Traffic</button>
+            </div>
+
+            <div class="test-card">
+                <h3>📊 System Analysis</h3>
+                <p>Analyzes real system behavior</p>
+                <button class="test-button" onclick="analyzeSystemBehavior()" id="systemBtn">Analyze System</button>
+                <button class="test-button danger" onclick="deepScan()" id="deepBtn">Deep Scan</button>
+            </div>
+
+            <div class="test-card">
+                <h3>🎯 Live Testing</h3>
+                <p>Test while IgniteRemote is running</p>
+                <button class="test-button" onclick="liveTest()" id="liveBtn">Start Live Test</button>
+                <button class="test-button" onclick="clearResults()">Clear Results</button>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="status info">🔍 Real Detection Test Suite Ready</div>
+            <div class="status warn">⚠️ Start detection_api.py first to enable real testing</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8765/api';
+        let serverConnected = false;
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const statusClass = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : type === 'warn' ? 'warn' : 'info';
+            
+            results.innerHTML += `<div class="status ${statusClass}">[${timestamp}] ${message}</div>`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/processes`);
+                if (response.ok) {
+                    serverConnected = true;
+                    document.getElementById('serverStatus').innerHTML = '🟢 Detection API Server: CONNECTED';
+                    document.getElementById('serverStatus').className = 'server-status connected';
+                    enableButtons();
+                } else {
+                    throw new Error('Server not responding');
+                }
+            } catch (error) {
+                serverConnected = false;
+                document.getElementById('serverStatus').innerHTML = '🔴 Detection API Server: DISCONNECTED';
+                document.getElementById('serverStatus').className = 'server-status';
+                disableButtons();
+                log(`❌ Cannot connect to detection API: ${error.message}`, 'fail');
+                log(`💡 Run: python detection_api.py in your terminal`, 'warn');
+            }
+        }
+
+        function enableButtons() {
+            const buttons = ['processBtn', 'windowBtn', 'networkBtn', 'trafficBtn', 'systemBtn', 'deepBtn', 'liveBtn'];
+            buttons.forEach(id => {
+                document.getElementById(id).disabled = false;
+            });
+        }
+
+        function disableButtons() {
+            const buttons = ['processBtn', 'windowBtn', 'networkBtn', 'trafficBtn', 'systemBtn', 'deepBtn', 'liveBtn'];
+            buttons.forEach(id => {
+                document.getElementById(id).disabled = true;
+            });
+        }
+
+        async function testRealProcesses() {
+            if (!serverConnected) {
+                log('❌ Detection API not connected', 'fail');
+                return;
+            }
+
+            log('🔍 Scanning actual running processes...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/processes`);
+                const data = await response.json();
+                
+                log(`📊 Total processes: ${data.total_processes}`, 'info');
+                
+                if (data.ignite_detected) {
+                    log('🚨 IGNITE PROCESS DETECTED!', 'fail');
+                    log('❌ IgniteRemote is visible in process list', 'fail');
+                } else {
+                    log('✅ No IgniteRemote process found', 'pass');
+                }
+
+                if (data.python_main_detected) {
+                    log('🚨 PYTHON MAIN.PY DETECTED!', 'fail');
+                    log('❌ Python process running main.py found', 'fail');
+                } else {
+                    log('✅ No suspicious Python processes found', 'pass');
+                }
+
+                if (data.suspicious_processes.length > 0) {
+                    log(`⚠️ Found ${data.suspicious_processes.length} suspicious processes:`, 'warn');
+                    data.suspicious_processes.forEach(proc => {
+                        log(`   PID ${proc.pid}: ${proc.name} - ${proc.reason}`, 'warn');
+                    });
+                } else {
+                    log('✅ No suspicious processes detected', 'pass');
+                }
+
+                // Overall assessment
+                const detectionCount = (data.ignite_detected ? 1 : 0) + (data.python_main_detected ? 1 : 0);
+                if (detectionCount === 0) {
+                    log('🥷 STEALTH SUCCESS: Process detection bypassed', 'pass');
+                } else {
+                    log(`🚨 DETECTION FAILURE: ${detectionCount} critical processes detected`, 'fail');
+                }
+
+            } catch (error) {
+                log(`❌ Process scan failed: ${error.message}`, 'fail');
+            }
+        }
+
+        async function testRealWindows() {
+            if (!serverConnected) {
+                log('❌ Detection API not connected', 'fail');
+                return;
+            }
+
+            log('🔍 Scanning actual visible windows...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/windows`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    log(`⚠️ Window scanning limited: ${data.error}`, 'warn');
+                    return;
+                }
+
+                log(`📊 Total visible windows: ${data.windows.length}`, 'info');
+                
+                if (data.suspicious_count > 0) {
+                    log(`🚨 SUSPICIOUS WINDOWS DETECTED: ${data.suspicious_count}`, 'fail');
+                    const suspiciousWindows = data.windows.filter(w => w.suspicious);
+                    suspiciousWindows.forEach(window => {
+                        log(`   ❌ "${window.title}"`, 'fail');
+                    });
+                } else {
+                    log('✅ No suspicious windows found', 'pass');
+                    log('🥷 Window titles successfully hidden', 'pass');
+                }
+
+            } catch (error) {
+                log(`❌ Window scan failed: ${error.message}`, 'fail');
+            }
+        }
+
+        async function testRealConnections() {
+            if (!serverConnected) {
+                log('❌ Detection API not connected', 'fail');
+                return;
+            }
+
+            log('🔍 Analyzing actual network connections...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/connections`);
+                const data = await response.json();
+                
+                log(`📊 Total network connections: ${data.total_connections}`, 'info');
+                log(`🌐 WebSocket-like connections: ${data.websocket_connections}`, 'info');
+                
+                if (data.websocket_connections > 5) {
+                    log('⚠️ High number of WebSocket connections detected', 'warn');
+                    log('   This might indicate remote desktop activity', 'warn');
+                } else if (data.websocket_connections > 0) {
+                    log(`✅ Normal WebSocket activity (${data.websocket_connections} connections)`, 'pass');
+                    log('   Traffic appears to blend with normal HTTPS', 'pass');
+                } else {
+                    log('✅ No suspicious network activity detected', 'pass');
+                }
+
+                // Show some connection details
+                const suspiciousConnections = data.connections.filter(c => c.suspicious);
+                if (suspiciousConnections.length > 0) {
+                    log(`🔍 Suspicious connections:`, 'info');
+                    suspiciousConnections.forEach(conn => {
+                        log(`   ${conn.remote_host}:${conn.remote_port} (${conn.status})`, 'warn');
+                    });
+                }
+
+            } catch (error) {
+                log(`❌ Network scan failed: ${error.message}`, 'fail');
+            }
+        }
+
+        async function monitorTraffic() {
+            log('🔍 Starting network traffic monitoring...', 'info');
+            log('📊 Monitoring for 10 seconds...', 'info');
+            
+            const startTime = Date.now();
+            let previousData = null;
+            
+            const monitor = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/connections`);
+                    const data = await response.json();
+                    
+                    if (previousData) {
+                        const connectionChange = data.total_connections - previousData.total_connections;
+                        const wsChange = data.websocket_connections - previousData.websocket_connections;
+                        
+                        if (Math.abs(connectionChange) > 2) {
+                            log(`📈 Connection spike: ${connectionChange > 0 ? '+' : ''}${connectionChange} connections`, 'warn');
+                        }
+                        
+                        if (wsChange > 0) {
+                            log(`🚨 New WebSocket connections: +${wsChange}`, 'fail');
+                        }
+                    }
+                    
+                    previousData = data;
+                    
+                } catch (error) {
+                    log(`❌ Monitoring error: ${error.message}`, 'fail');
+                }
+                
+                if (Date.now() - startTime > 10000) {
+                    clearInterval(monitor);
+                    log('✅ Network monitoring completed', 'info');
+                }
+            }, 1000);
+        }
+
+        async function analyzeSystemBehavior() {
+            log('🔍 Analyzing system behavior patterns...', 'info');
+            
+            // Check CPU usage pattern
+            const startCPU = performance.now();
+            
+            // Run all detection tests
+            await Promise.all([
+                testRealProcesses(),
+                testRealWindows(),  
+                testRealConnections()
+            ]);
+            
+            const endCPU = performance.now();
+            const executionTime = endCPU - startCPU;
+            
+            log(`⏱️ Detection scan completed in ${executionTime.toFixed(0)}ms`, 'info');
+            
+            if (executionTime > 3000) {
+                log('⚠️ Slow system response - possible high CPU usage', 'warn');
+                log('   This could indicate screen capture activity', 'warn');
+            } else {
+                log('✅ Normal system responsiveness', 'pass');
+            }
+        }
+
+        async function deepScan() {
+            log('🔍 Starting DEEP SYSTEM SCAN...', 'warn');
+            log('⚠️ This performs comprehensive detection like real proctoring software', 'warn');
+            
+            const tests = [
+                { name: 'Process Detection', func: testRealProcesses },
+                { name: 'Window Detection', func: testRealWindows },
+                { name: 'Network Analysis', func: testRealConnections },
+                { name: 'Traffic Monitoring', func: monitorTraffic }
+            ];
+            
+            let passedTests = 0;
+            
+            for (let i = 0; i < tests.length; i++) {
+                const test = tests[i];
+                log(`🔎 Running: ${test.name}...`, 'info');
+                
+                const beforeLog = document.getElementById('results').children.length;
+                await test.func();
+                const afterLog = document.getElementById('results').children.length;
+                
+                // Check if test passed (no fail messages in new logs)
+                let testPassed = true;
+                for (let j = beforeLog; j < afterLog; j++) {
+                    const logEntry = document.getElementById('results').children[j];
+                    if (logEntry.classList.contains('fail')) {
+                        testPassed = false;
+                        break;
+                    }
+                }
+                
+                if (testPassed) {
+                    passedTests++;
+                }
+                
+                // Delay between tests
+                if (i < tests.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+            
+            // Final assessment
+            const successRate = (passedTests / tests.length) * 100;
+            
+            log('', 'info');
+            log('📊 DEEP SCAN RESULTS:', 'info');
+            log(`✅ Passed: ${passedTests}/${tests.length} tests`, 'info');
+            log(`📈 Stealth Score: ${successRate.toFixed(0)}%`, 'info');
+            
+            if (successRate >= 75) {
+                log('🥷 EXCELLENT STEALTH - Would bypass most proctoring software', 'pass');
+            } else if (successRate >= 50) {
+                log('🔒 MODERATE STEALTH - Some detection possible', 'warn');
+            } else {
+                log('🚨 HIGH DETECTION RISK - Would likely be caught', 'fail');
+            }
+        }
+
+        async function liveTest() {
+            log('🎯 Starting LIVE TEST MODE...', 'info');
+            log('💡 This will continuously monitor for IgniteRemote', 'info');
+            log('   Start/stop IgniteRemote to test stealth effectiveness', 'warn');
+            
+            let testCount = 0;
+            const maxTests = 20; // Run for 20 iterations (2 minutes)
+            
+            const liveMonitor = setInterval(async () => {
+                testCount++;
+                log(`🔄 Live Test ${testCount}/${maxTests}`, 'info');
+                
+                await testRealProcesses();
+                
+                if (testCount >= maxTests) {
+                    clearInterval(liveMonitor);
+                    log('✅ Live testing completed', 'info');
+                }
+            }, 6000); // Test every 6 seconds
+            
+            log('⏹️ Live testing will run for 2 minutes...', 'info');
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = `
+                <div class="status info">🔍 Real Detection Test Suite Ready</div>
+                <div class="status info">✅ Detection API Connected - Ready for real testing</div>
+            `;
+        }
+
+        // Check server status on page load
+        checkServerStatus();
+        
+        // Check server status every 10 seconds
+        setInterval(checkServerStatus, 10000);
+
+        // Initial welcome message
+        setTimeout(() => {
+            log('🚀 Real detection test environment loaded', 'pass');
+            log('💡 This test actually scans your system - not fake results!', 'info');
+        }, 1000);
+    </script>
+</body>
+</html>

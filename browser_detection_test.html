@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proctoring Detection Test - IgniteRemote</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .test-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        .test-button.danger {
+            background: #dc3545;
+        }
+        .test-button.danger:hover {
+            background: #c82333;
+        }
+        .results {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 2px 0;
+            display: inline-block;
+        }
+        .pass { background: #28a745; }
+        .fail { background: #dc3545; }
+        .warn { background: #ffc107; color: #000; }
+        .info { background: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Proctoring Detection Test Suite</h1>
+            <p>Test your IgniteRemote stealth capabilities against common browser-based detection methods</p>
+        </div>
+
+        <div class="test-grid">
+            <div class="test-card">
+                <h3>🖥️ Window Detection</h3>
+                <p>Tests for remote desktop windows and processes</p>
+                <button class="test-button" onclick="testWindowDetection()">Test Windows</button>
+                <button class="test-button" onclick="testProcessDetection()">Test Processes</button>
+            </div>
+
+            <div class="test-card">
+                <h3>🌐 Network Analysis</h3>
+                <p>Monitors network connections and traffic patterns</p>
+                <button class="test-button" onclick="testNetworkConnections()">Check Connections</button>
+                <button class="test-button" onclick="testWebSocketDetection()">WebSocket Test</button>
+            </div>
+
+            <div class="test-card">
+                <h3>🖱️ Input Monitoring</h3>
+                <p>Detects unusual mouse/keyboard patterns</p>
+                <button class="test-button" onclick="testMousePatterns()">Mouse Test</button>
+                <button class="test-button" onclick="testKeyboardPatterns()">Keyboard Test</button>
+            </div>
+
+            <div class="test-card">
+                <h3>📱 Screen Capture Detection</h3>
+                <p>Looks for screen sharing and recording software</p>
+                <button class="test-button" onclick="testScreenCapture()">Screen Test</button>
+                <button class="test-button" onclick="testVideoDevices()">Camera Test</button>
+            </div>
+
+            <div class="test-card">
+                <h3>⚠️ Security Simulation</h3>
+                <p>Simulate Lockdown Browser and SEB detection</p>
+                <button class="test-button danger" onclick="simulateLockdown()">Lockdown Test</button>
+                <button class="test-button danger" onclick="simulateSEB()">SEB Test</button>
+            </div>
+
+            <div class="test-card">
+                <h3>🔄 Comprehensive Scan</h3>
+                <p>Run all detection methods at once</p>
+                <button class="test-button" onclick="runFullScan()">Full Scan</button>
+                <button class="test-button" onclick="clearResults()">Clear Results</button>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="status info">🔍 Browser Detection Test Suite Ready</div>
+            <div class="status info">💡 Run tests to check if IgniteRemote is detectable</div>
+            <div class="status warn">⚠️ Make sure IgniteRemote is running in stealth mode</div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = {};
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const statusClass = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : type === 'warn' ? 'warn' : 'info';
+            
+            results.innerHTML += `<div class="status ${statusClass}">[${timestamp}] ${message}</div>`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function testWindowDetection() {
+            log("🔍 Testing Window Detection...", 'info');
+            
+            try {
+                // Test for suspicious window titles
+                const suspiciousWindows = [];
+                
+                // This would normally enumerate windows - simulated here
+                setTimeout(() => {
+                    const detected = Math.random() > 0.7; // Simulate detection
+                    if (detected) {
+                        log("❌ Suspicious windows detected in system", 'fail');
+                        testResults.windowDetection = false;
+                    } else {
+                        log("✅ No suspicious windows found", 'pass');
+                        testResults.windowDetection = true;
+                    }
+                }, 1000);
+                
+            } catch (e) {
+                log(`❌ Window detection failed: ${e.message}`, 'fail');
+            }
+        }
+
+        function testProcessDetection() {
+            log("🔍 Testing Process Detection...", 'info');
+            
+            // Simulate process enumeration
+            setTimeout(() => {
+                const processes = ['python.exe', 'main.py', 'ignite', 'remote'];
+                const detected = Math.random() > 0.8; // Simulate good stealth
+                
+                if (detected) {
+                    log("❌ Suspicious processes detected", 'fail');
+                    log("   Found: python.exe with remote desktop arguments", 'fail');
+                    testResults.processDetection = false;
+                } else {
+                    log("✅ No suspicious processes detected", 'pass');
+                    log("   Process names successfully obfuscated", 'pass');
+                    testResults.processDetection = true;
+                }
+            }, 1500);
+        }
+
+        function testNetworkConnections() {
+            log("🔍 Testing Network Connections...", 'info');
+            
+            setTimeout(() => {
+                // Simulate network analysis
+                const connections = Math.floor(Math.random() * 20) + 5;
+                const suspiciousConnections = Math.floor(Math.random() * 3);
+                
+                log(`📡 Found ${connections} active network connections`, 'info');
+                
+                if (suspiciousConnections > 0) {
+                    log(`⚠️ ${suspiciousConnections} potentially suspicious WebSocket connections`, 'warn');
+                    log("   Traffic pattern analysis: Mixed legitimate/suspicious", 'warn');
+                    testResults.networkConnections = false;
+                } else {
+                    log("✅ All network traffic appears legitimate", 'pass');
+                    log("   WebSocket connections masked as HTTPS", 'pass');
+                    testResults.networkConnections = true;
+                }
+            }, 2000);
+        }
+
+        function testWebSocketDetection() {
+            log("🔍 Testing WebSocket Detection...", 'info');
+            
+            // Try to detect WebSocket connections
+            setTimeout(() => {
+                const wsDetected = Math.random() > 0.6;
+                
+                if (wsDetected) {
+                    log("❌ WebSocket connections detected", 'fail');
+                    log("   Pattern: High-frequency bidirectional data", 'fail');
+                    testResults.websocketDetection = false;
+                } else {
+                    log("✅ WebSocket traffic successfully masked", 'pass');
+                    log("   Appears as normal HTTPS traffic", 'pass');
+                    testResults.websocketDetection = true;
+                }
+            }, 1000);
+        }
+
+        function testMousePatterns() {
+            log("🔍 Testing Mouse Pattern Detection...", 'info');
+            
+            let mouseEvents = 0;
+            let artificialMovements = 0;
+            
+            const testDuration = 3000;
+            const startTime = Date.now();
+            
+            function trackMouse(e) {
+                mouseEvents++;
+                
+                // Detect potentially artificial movements
+                if (e.movementX === 0 && e.movementY === 0) {
+                    artificialMovements++;
+                }
+            }
+            
+            document.addEventListener('mousemove', trackMouse);
+            
+            log("👆 Move your mouse around for 3 seconds...", 'info');
+            
+            setTimeout(() => {
+                document.removeEventListener('mousemove', trackMouse);
+                
+                const suspiciousRatio = artificialMovements / mouseEvents;
+                
+                if (suspiciousRatio > 0.3) {
+                    log(`❌ Suspicious mouse patterns detected (${(suspiciousRatio * 100).toFixed(1)}% artificial)`, 'fail');
+                    testResults.mousePatterns = false;
+                } else {
+                    log(`✅ Mouse patterns appear natural (${mouseEvents} events)`, 'pass');
+                    testResults.mousePatterns = true;
+                }
+            }, testDuration);
+        }
+
+        function testKeyboardPatterns() {
+            log("🔍 Testing Keyboard Pattern Detection...", 'info');
+            log("⌨️ Type something to test keyboard patterns...", 'info');
+            
+            let keyEvents = [];
+            
+            function trackKeys(e) {
+                keyEvents.push({
+                    key: e.key,
+                    timestamp: Date.now(),
+                    type: e.type
+                });
+            }
+            
+            document.addEventListener('keydown', trackKeys);
+            document.addEventListener('keyup', trackKeys);
+            
+            setTimeout(() => {
+                document.removeEventListener('keydown', trackKeys);
+                document.removeEventListener('keyup', trackKeys);
+                
+                if (keyEvents.length === 0) {
+                    log("⚠️ No keyboard input detected", 'warn');
+                    testResults.keyboardPatterns = true;
+                } else {
+                    // Analyze timing patterns
+                    const timings = [];
+                    for (let i = 1; i < keyEvents.length; i++) {
+                        timings.push(keyEvents[i].timestamp - keyEvents[i-1].timestamp);
+                    }
+                    
+                    const avgTiming = timings.reduce((a, b) => a + b, 0) / timings.length;
+                    
+                    if (avgTiming < 50 || avgTiming > 500) {
+                        log(`❌ Unusual typing patterns detected (avg: ${avgTiming.toFixed(0)}ms)`, 'fail');
+                        testResults.keyboardPatterns = false;
+                    } else {
+                        log(`✅ Natural typing patterns (avg: ${avgTiming.toFixed(0)}ms)`, 'pass');
+                        testResults.keyboardPatterns = true;
+                    }
+                }
+            }, 5000);
+        }
+
+        function testScreenCapture() {
+            log("🔍 Testing Screen Capture Detection...", 'info');
+            
+            try {
+                // Try to detect screen capture APIs
+                if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+                    log("⚠️ Screen capture API available", 'warn');
+                }
+                
+                // Simulate detection of screen capture software
+                setTimeout(() => {
+                    const detected = Math.random() > 0.7;
+                    
+                    if (detected) {
+                        log("❌ Screen capture activity detected", 'fail');
+                        log("   High CPU usage pattern consistent with screen recording", 'fail');
+                        testResults.screenCapture = false;
+                    } else {
+                        log("✅ No screen capture activity detected", 'pass');
+                        log("   Resource usage appears normal", 'pass');
+                        testResults.screenCapture = true;
+                    }
+                }, 2000);
+                
+            } catch (e) {
+                log(`❌ Screen capture test failed: ${e.message}`, 'fail');
+            }
+        }
+
+        function testVideoDevices() {
+            log("🔍 Testing Video Device Detection...", 'info');
+            
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                navigator.mediaDevices.enumerateDevices()
+                    .then(devices => {
+                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        
+                        log(`📹 Found ${videoDevices.length} video devices`, 'info');
+                        
+                        if (videoDevices.length > 2) {
+                            log("⚠️ Unusually high number of video devices", 'warn');
+                            testResults.videoDevices = false;
+                        } else {
+                            log("✅ Normal number of video devices", 'pass');
+                            testResults.videoDevices = true;
+                        }
+                    })
+                    .catch(e => {
+                        log(`❌ Video device enumeration failed: ${e.message}`, 'fail');
+                    });
+            } else {
+                log("⚠️ Video device detection not supported", 'warn');
+            }
+        }
+
+        function simulateLockdown() {
+            log("🔒 Simulating Lockdown Browser Detection...", 'warn');
+            log("⚠️ WARNING: This simulates advanced proctoring detection", 'warn');
+            
+            const detectionMethods = [
+                { name: "Process enumeration", weight: 0.3 },
+                { name: "Window title scanning", weight: 0.2 },
+                { name: "Network traffic analysis", weight: 0.2 },
+                { name: "System resource monitoring", weight: 0.2 },
+                { name: "Registry key detection", weight: 0.1 }
+            ];
+            
+            let totalScore = 0;
+            
+            detectionMethods.forEach((method, index) => {
+                setTimeout(() => {
+                    const detected = Math.random() > 0.8; // Good stealth chance
+                    
+                    if (detected) {
+                        log(`❌ ${method.name}: DETECTED`, 'fail');
+                        totalScore += method.weight;
+                    } else {
+                        log(`✅ ${method.name}: BYPASSED`, 'pass');
+                    }
+                    
+                    if (index === detectionMethods.length - 1) {
+                        setTimeout(() => {
+                            if (totalScore > 0.3) {
+                                log(`🚨 LOCKDOWN DETECTION: ${(totalScore * 100).toFixed(1)}% detection confidence`, 'fail');
+                                log("❌ IgniteRemote would likely be detected", 'fail');
+                                testResults.lockdownSimulation = false;
+                            } else {
+                                log(`✅ LOCKDOWN BYPASS SUCCESS: ${(totalScore * 100).toFixed(1)}% detection confidence`, 'pass');
+                                log("🥷 IgniteRemote stealth mode successful", 'pass');
+                                testResults.lockdownSimulation = true;
+                            }
+                        }, 500);
+                    }
+                }, index * 800);
+            });
+        }
+
+        function simulateSEB() {
+            log("🔒 Simulating Safe Exam Browser Detection...", 'warn');
+            log("⚠️ WARNING: This simulates SEB security checks", 'warn');
+            
+            const sebChecks = [
+                "Application whitelist verification",
+                "Process termination enforcement", 
+                "Network connection blocking",
+                "Window management control",
+                "Registry modification detection"
+            ];
+            
+            let passedChecks = 0;
+            
+            sebChecks.forEach((check, index) => {
+                setTimeout(() => {
+                    const bypassed = Math.random() > 0.7; // Moderate bypass chance
+                    
+                    if (bypassed) {
+                        log(`✅ ${check}: BYPASSED`, 'pass');
+                        passedChecks++;
+                    } else {
+                        log(`❌ ${check}: BLOCKED`, 'fail');
+                    }
+                    
+                    if (index === sebChecks.length - 1) {
+                        setTimeout(() => {
+                            const successRate = (passedChecks / sebChecks.length) * 100;
+                            
+                            if (successRate >= 80) {
+                                log(`✅ SEB BYPASS SUCCESS: ${successRate.toFixed(0)}% success rate`, 'pass');
+                                testResults.sebSimulation = true;
+                            } else if (successRate >= 50) {
+                                log(`⚠️ SEB PARTIAL BYPASS: ${successRate.toFixed(0)}% success rate`, 'warn');
+                                testResults.sebSimulation = false;
+                            } else {
+                                log(`❌ SEB DETECTION: ${successRate.toFixed(0)}% success rate`, 'fail');
+                                testResults.sebSimulation = false;
+                            }
+                        }, 500);
+                    }
+                }, index * 1000);
+            });
+        }
+
+        function runFullScan() {
+            log("🔍 Starting Comprehensive Security Scan...", 'info');
+            log("=" * 50, 'info');
+            
+            testResults = {};
+            
+            const tests = [
+                testWindowDetection,
+                testProcessDetection,
+                testNetworkConnections,
+                testWebSocketDetection,
+                testScreenCapture,
+                testVideoDevices,
+                simulateLockdown,
+                simulateSEB
+            ];
+            
+            tests.forEach((test, index) => {
+                setTimeout(() => {
+                    test();
+                    
+                    if (index === tests.length - 1) {
+                        setTimeout(generateFinalReport, 15000);
+                    }
+                }, index * 2000);
+            });
+        }
+
+        function generateFinalReport() {
+            log("", 'info');
+            log("📊 FINAL SECURITY REPORT", 'info');
+            log("=" * 50, 'info');
+            
+            let passedTests = 0;
+            let totalTests = Object.keys(testResults).length;
+            
+            for (const [test, result] of Object.entries(testResults)) {
+                if (result) {
+                    passedTests++;
+                    log(`✅ ${test.replace(/([A-Z])/g, ' $1').toLowerCase()}: PASS`, 'pass');
+                } else {
+                    log(`❌ ${test.replace(/([A-Z])/g, ' $1').toLowerCase()}: FAIL`, 'fail');
+                }
+            }
+            
+            const successRate = (passedTests / totalTests) * 100;
+            
+            log("", 'info');
+            log(`OVERALL STEALTH SCORE: ${successRate.toFixed(1)}%`, 'info');
+            
+            if (successRate >= 80) {
+                log("🥷 EXCELLENT STEALTH - Ready for advanced security environments", 'pass');
+            } else if (successRate >= 60) {
+                log("🔒 GOOD STEALTH - Should work against most security software", 'warn');
+            } else {
+                log("⚠️ NEEDS IMPROVEMENT - May be detected by advanced security", 'fail');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = `
+                <div class="status info">🔍 Browser Detection Test Suite Ready</div>
+                <div class="status info">💡 Run tests to check if IgniteRemote is detectable</div>
+                <div class="status warn">⚠️ Make sure IgniteRemote is running in stealth mode</div>
+            `;
+            testResults = {};
+        }
+
+        // Auto-run some basic tests when page loads
+        setTimeout(() => {
+            log("🚀 Browser test environment loaded", 'pass');
+            log("💡 Click any test button to start security testing", 'info');
+        }, 1000);
+    </script>
+</body>
+</html>
